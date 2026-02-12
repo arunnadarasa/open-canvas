@@ -1,10 +1,14 @@
 export interface X402PaymentRequirement {
   to: string;
-  amount: string;
+  amount: string;          // human-readable (e.g. "0.01")
+  rawAmount: string;       // original from 402 response (e.g. "10000")
   token: string;
   tokenSymbol: string;
   network: string;
   description: string;
+  scheme: string;          // e.g. "exact"
+  maxTimeoutSeconds: number;
+  extra: Record<string, unknown>;
 }
 
 export interface X402VerifiedResponse {
@@ -27,30 +31,28 @@ export async function fetchX402Requirements(
   const res = await fetch(proxyUrl(url));
   const data = await res.json();
 
-  // Accept 402 (direct) or any response that contains x402 payment data (via proxy)
   if (!data?.x402 && res.status !== 402) {
     throw new Error(`Expected x402 payment data, got ${res.status}: ${JSON.stringify(data).slice(0, 200)}`);
   }
-  // Support both v1 (data.x402.accepts) and v2 (data.accepts)
+
   const accepts = data?.x402?.accepts || data?.accepts;
 
   if (!accepts || !Array.isArray(accepts) || accepts.length === 0) {
     throw new Error('No payment options returned from x402 endpoint');
   }
 
-  // Prefer USDC, fall back to first option
   const usdcOption = accepts.find(
     (a: any) => a.tokenSymbol === 'USDC' || a.asset || (a.token && a.token !== 'native')
   );
   const option = usdcOption || accepts[0];
 
-  // Normalize v2 field names to internal format
   const to = option.payTo || option.to;
   const token = option.asset || option.token;
   const description = option.extra?.description || option.description || '';
+  const rawAmount = String(option.amount);
 
   // Convert raw amount (e.g. "10000" with 6 decimals = 0.01) to human-readable
-  let amount = option.amount;
+  let amount = rawAmount;
   if (amount && /^\d+$/.test(amount) && !amount.includes('.')) {
     amount = (Number(amount) / 1_000_000).toString();
   }
@@ -58,39 +60,44 @@ export async function fetchX402Requirements(
   return {
     to,
     amount,
+    rawAmount,
     token,
     tokenSymbol: option.tokenSymbol || 'USDC',
     network: option.network || data?.x402?.network || 'solana-devnet',
     description,
+    scheme: option.scheme || 'exact',
+    maxTimeoutSeconds: option.maxTimeoutSeconds || 60,
+    extra: option.extra || {},
   };
 }
 
 /**
  * Build the x402 v2 Payment-Signature header value.
- * The header is a base64-encoded JSON object containing the signed transaction
- * and the accepted payment requirements.
+ * Base64-encoded JSON matching the exact v2 spec.
  */
-function buildX402PaymentHeader(
+export function buildX402PaymentHeader(
   signedTxBase64: string,
   paymentReq: X402PaymentRequirement,
   resourceUrl: string
 ): string {
   const payload = {
     x402Version: 2,
-    payload: {
-      transaction: signedTxBase64,
-    },
     resource: {
       url: resourceUrl,
       description: paymentReq.description,
+      mimeType: 'application/json',
     },
     accepted: {
-      scheme: 'exact',
+      scheme: paymentReq.scheme,
       network: paymentReq.network,
-      amount: paymentReq.amount,
+      amount: paymentReq.rawAmount,
       asset: paymentReq.token,
       payTo: paymentReq.to,
-      tokenSymbol: paymentReq.tokenSymbol,
+      maxTimeoutSeconds: paymentReq.maxTimeoutSeconds,
+      extra: paymentReq.extra,
+    },
+    payload: {
+      transaction: signedTxBase64,
     },
   };
 
@@ -104,9 +111,6 @@ export async function verifyX402Payment(
 ): Promise<X402VerifiedResponse> {
   const paymentHeader = buildX402PaymentHeader(signedTxBase64, paymentReq, url);
 
-  // Send verification with the Payment-Signature header embedded in the proxy URL
-  // since CORS proxies often strip custom request headers.
-  // We try sending the header directly first; if the proxy forwards it, great.
   const res = await fetch(proxyUrl(url), {
     headers: {
       'PAYMENT-SIGNATURE': paymentHeader,
@@ -117,8 +121,6 @@ export async function verifyX402Payment(
   const data = await res.json();
 
   if (!res.ok) {
-    // If the proxy stripped the header, try an alternative approach:
-    // encode the header as a query parameter
     if (data?.error?.includes('PAYMENT-SIGNATURE') || data?.hint?.includes('PAYMENT-SIGNATURE')) {
       const separator = url.includes('?') ? '&' : '?';
       const directUrl = `${url}${separator}payment_signature=${encodeURIComponent(paymentHeader)}`;
