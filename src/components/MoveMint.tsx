@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL, ComputeBudgetProgram } from '@solana/web3.js';
 import {
   getAssociatedTokenAddress,
-  createTransferInstruction,
+  createTransferCheckedInstruction,
   createAssociatedTokenAccountInstruction,
   getAccount,
 } from '@solana/spl-token';
@@ -127,12 +127,15 @@ export default function MoveMint() {
       `Payment required: ${paymentReq.amount} ${paymentReq.tokenSymbol} → ${paymentReq.to.slice(0, 6)}...${paymentReq.to.slice(-4)}`
     );
 
-    // Step 2: Build USDC SPL token transfer
+    // Step 2: Build correct 3-instruction transaction per x402 v2 spec
     setStatus(`Preparing ${paymentReq.tokenSymbol} transfer...`);
 
     const usdcMint = new PublicKey(paymentReq.token);
     const recipientPubkey = new PublicKey(paymentReq.to);
-    const amount = Math.round(parseFloat(paymentReq.amount) * 1_000_000);
+    const amount = Math.round(parseFloat(paymentReq.rawAmount));
+
+    // Facilitator pays gas — user doesn't need SOL
+    const facilitatorPubkey = new PublicKey(paymentReq.extra.feePayer as string);
 
     const senderATA = await getAssociatedTokenAddress(usdcMint, fromPubkey);
     const recipientATA = await getAssociatedTokenAddress(usdcMint, recipientPubkey);
@@ -163,40 +166,56 @@ export default function MoveMint() {
       throw new Error('No USDC token account found. You need devnet USDC in your wallet.');
     }
 
+    // x402 v2 requires exactly 3 instructions:
+    // 1. SetComputeUnitLimit
+    // 2. SetComputeUnitPrice (priority fee)
+    // 3. TransferChecked (USDC with decimal verification)
+    transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 10_000 }));
+    transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000 }));
     transaction.add(
-      createTransferInstruction(senderATA, recipientATA, fromPubkey, amount)
+      createTransferCheckedInstruction(
+        senderATA,      // source ATA
+        usdcMint,       // mint
+        recipientATA,   // destination ATA
+        fromPubkey,     // owner (signer)
+        amount,         // amount in smallest unit
+        6               // USDC decimals
+      )
     );
 
     const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
-    transaction.feePayer = fromPubkey;
+    // Facilitator is the fee payer — they co-sign and broadcast later
+    transaction.feePayer = facilitatorPubkey;
 
-    // Step 3: Sign and capture the signed transaction BEFORE broadcasting
+    // Step 3: Sign with Phantom (partial signature — facilitator hasn't signed yet)
     setStatus(`Please sign the ${paymentReq.amount} ${paymentReq.tokenSymbol} payment in your wallet...`);
     const signedTx = await phantom.signTransaction(transaction);
-    const serializedTx = signedTx.serialize();
+    // Serialize without requiring all signatures (facilitator will co-sign)
+    const serializedTx = signedTx.serialize({ requireAllSignatures: false });
 
-    // Capture signed tx as base64 for x402 verification
+    // Capture signed tx as base64 for x402 header
     const signedTxBase64 = Buffer.from(serializedTx).toString('base64');
     signedTxBase64Ref.current = signedTxBase64;
 
-    setStatus('Broadcasting payment...');
-    const signature = await connection.sendRawTransaction(serializedTx);
-    await connection.confirmTransaction(signature);
+    // Step 4: Send to x402 facilitator via edge function proxy
+    // We do NOT broadcast locally — the facilitator co-signs and broadcasts
+    setStatus('Sending payment to x402 facilitator for verification...');
 
-    setTxSignature(signature);
-    setStatus('Payment sent! Verifying with x402...');
-
-    // Step 4: Verify payment via x402 with proper v2 header
     try {
       const verified = await verifyX402Payment(signedTxBase64, paymentReq);
       setVerifiedContent(verified);
+      // tx hash comes from the facilitator, not local broadcast
+      if (verified.tx_hash) {
+        setTxSignature(verified.tx_hash);
+      }
       setStatus(
         `✅ Payment verified! Move "${moveName}" minted successfully.\nPaid ${paymentReq.amount} ${paymentReq.tokenSymbol}.`
       );
     } catch (verifyErr: any) {
+      const errMsg = typeof verifyErr === 'object' ? (verifyErr.message || JSON.stringify(verifyErr)) : String(verifyErr);
       setStatus(
-        `⚠️ Payment sent (${signature.slice(0, 8)}...) but verification pending. The x402 endpoint may need a moment to confirm. Try refreshing.`
+        `⚠️ Facilitator verification failed: ${errMsg}`
       );
     }
   };
