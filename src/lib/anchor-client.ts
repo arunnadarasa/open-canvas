@@ -58,7 +58,7 @@ export async function buildMintSkillTransaction(
 
   const keys = [
     { pubkey: creator, isSigner: true, isWritable: true },
-    { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: true },
+    { pubkey: mintKeypair.publicKey, isSigner: true, isWritable: true },
     { pubkey: treasuryPDA, isSigner: false, isWritable: false },
     { pubkey: skillPDA, isSigner: false, isWritable: true },
     { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
