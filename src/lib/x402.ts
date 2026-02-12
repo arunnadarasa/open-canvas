@@ -25,12 +25,12 @@ export async function fetchX402Requirements(
   url: string = import.meta.env.VITE_X402_ENDPOINT || DEFAULT_ENDPOINT
 ): Promise<X402PaymentRequirement> {
   const res = await fetch(proxyUrl(url));
-
-  if (res.status !== 402) {
-    throw new Error(`Expected 402 response, got ${res.status}`);
-  }
-
   const data = await res.json();
+
+  // Accept 402 (direct) or any response that contains x402 payment data (via proxy)
+  if (!data?.x402 && res.status !== 402) {
+    throw new Error(`Expected x402 payment data, got ${res.status}: ${JSON.stringify(data).slice(0, 200)}`);
+  }
   const accepts = data?.x402?.accepts;
 
   if (!accepts || !Array.isArray(accepts) || accepts.length === 0) {
