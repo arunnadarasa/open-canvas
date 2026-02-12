@@ -9,8 +9,7 @@ import {
 } from '@solana/spl-token';
 import { fetchX402Requirements, verifyX402Payment, buildX402PaymentHeader, type X402PaymentRequirement } from '@/lib/x402';
 import { buildMintSkillTransaction, buildVerifySkillTransaction } from '@/lib/anchor-client';
-import { fetchMetadataUri, buildCreateMetadataInstruction, getUmi } from '@/lib/metaplex';
-import { toWeb3JsTransaction } from '@metaplex-foundation/umi-web3js-adapters';
+import { fetchMetadataUri, buildCreateMetadataTransaction } from '@/lib/metaplex';
 import { ExternalLink, RefreshCw, AlertTriangle, CheckCircle2, Loader2, Wallet } from 'lucide-react';
 
 const connection = new Connection(import.meta.env.VITE_SOLANA_RPC || 'https://api.devnet.solana.com');
@@ -108,17 +107,13 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
         });
 
         setStatus('Building Metaplex metadata transaction...');
-        const metaplexTxBuilder = buildCreateMetadataInstruction({
+        const web3Tx = await buildCreateMetadataTransaction({
           mintPublicKey: mintKeypair.publicKey,
           creatorPublicKey: fromPubkey,
           name: moveName,
           uri: metadataUri,
           sellerFeeBasisPoints: royalty * 100,
         });
-
-        const umi = getUmi();
-        const umiTx = await metaplexTxBuilder.buildWithLatestBlockhash(umi);
-        const web3Tx = toWeb3JsTransaction(umiTx);
 
         setStatus('Please sign the metadata transaction in your wallet...');
         const signedMetaTx = await phantom.signTransaction(web3Tx);
