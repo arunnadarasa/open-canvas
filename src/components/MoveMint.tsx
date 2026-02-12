@@ -15,7 +15,7 @@ const SOL_AMOUNT_LAMPORTS = 100_000;
 
 type PaymentMethod = 'usdc' | 'sol';
 
-export default function MoveMint({ onMintSuccess }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol' }) => void }) {
+export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol' }) => void; isWorldIDVerified?: boolean; onRequestVerify?: () => void }) {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const [moveName, setMoveName] = useState('');
   const [videoHash, setVideoHash] = useState('');
@@ -243,8 +243,15 @@ export default function MoveMint({ onMintSuccess }: { onMintSuccess?: (data: { m
 
   return (
     <div className="space-y-6">
+      {/* World ID gate */}
+      {!isWorldIDVerified && (
+        <div className="glass-strong rounded-2xl p-6 text-center space-y-3">
+          <p className="text-sm text-muted-foreground">You must verify your identity before connecting a wallet.</p>
+        </div>
+      )}
+
       {/* Wallet Connection */}
-      <div>
+      {isWorldIDVerified && <div>
         {!authenticated ? (
           <div className="space-y-3">
             <button
@@ -294,9 +301,9 @@ export default function MoveMint({ onMintSuccess }: { onMintSuccess?: (data: { m
             </button>
           </div>
         )}
-      </div>
+      </div>}
 
-      {!authenticated ? (
+      {isWorldIDVerified && !authenticated ? (
         <p className="text-center text-muted-foreground text-sm">
           Connect your wallet to mint a dance move NFT on Solana devnet.
         </p>
