@@ -14,6 +14,8 @@ export interface MintedMove {
   mintPubkey?: string;
   skillPda?: string;
   metadataUri?: string;
+  skillJsonUri?: string;
+  skillMdUri?: string;
 }
 
 export function useMintedMoves() {
