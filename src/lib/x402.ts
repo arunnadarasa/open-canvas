@@ -47,9 +47,10 @@ export async function fetchX402Requirements(
 ): Promise<X402PaymentRequirement> {
   const res = await proxyFetch(url);
   const data = await res.json();
+  const upstreamStatus = data?.upstreamStatus || res.status;
 
-  if (!data?.x402 && res.status !== 402) {
-    throw new Error(`Expected x402 payment data, got ${res.status}: ${JSON.stringify(data).slice(0, 200)}`);
+  if (!data?.x402 && !data?.accepts && upstreamStatus !== 402) {
+    throw new Error(`Expected x402 payment data, got ${upstreamStatus}: ${JSON.stringify(data).slice(0, 200)}`);
   }
 
   const accepts = data?.x402?.accepts || data?.accepts;
@@ -134,10 +135,11 @@ export async function verifyX402Payment(
 
   const res = await proxyFetch(url, paymentHeader);
   const data = await res.json();
+  const upstreamStatus = data?.upstreamStatus || res.status;
 
-  if (!res.ok) {
+  if (upstreamStatus < 200 || upstreamStatus >= 300) {
     throw new Error(
-      data?.error || data?.hint || `Payment verification failed (${res.status}): ${JSON.stringify(data).slice(0, 300)}`
+      data?.error || data?.hint || `Payment verification failed (${upstreamStatus}): ${JSON.stringify(data).slice(0, 300)}`
     );
   }
 
