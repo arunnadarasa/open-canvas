@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.helius-webhook]
 verify_jwt = false
+
+[functions.helius-setup]
+verify_jwt = false
