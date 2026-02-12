@@ -11,8 +11,14 @@ import { PROGRAM_ID, USDC_MINT, getTreasuryPDA, getSkillDataPDA } from './anchor
 import { BorshCoder } from '@coral-xyz/anchor';
 import { MOVE_REGISTRY_IDL } from './anchor-idl';
 
-// We use BorshCoder to encode instruction data without needing a full Provider
-const coder = new BorshCoder(MOVE_REGISTRY_IDL as any);
+// Lazy-init coder to avoid crash at module load
+let _coder: BorshCoder | null = null;
+function getCoder(): BorshCoder {
+  if (!_coder) {
+    _coder = new BorshCoder(MOVE_REGISTRY_IDL as any);
+  }
+  return _coder;
+}
 
 /**
  * Build a mint_skill transaction.
@@ -30,7 +36,7 @@ export async function buildMintSkillTransaction(
   const [treasuryPDA] = getTreasuryPDA();
   const [skillPDA] = getSkillDataPDA(mintKeypair.publicKey);
 
-  const data = coder.instruction.encode('mintSkill', {
+  const data = getCoder().instruction.encode('mintSkill', {
     skillName,
     expression,
     royaltyPercent,
@@ -68,7 +74,7 @@ export async function buildVerifySkillTransaction(
   verifier: PublicKey,
   skillPDA: PublicKey,
 ): Promise<Transaction> {
-  const data = coder.instruction.encode('verifySkill', {});
+  const data = getCoder().instruction.encode('verifySkill', {});
 
   const keys = [
     { pubkey: verifier, isSigner: true, isWritable: true },
