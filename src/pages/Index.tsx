@@ -45,12 +45,6 @@ export default function Index() {
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
         {/* Hero Section */}
         <header className="text-center mb-16 sm:mb-20">
-          <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground mb-8 opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}>
-            <Zap className="w-3.5 h-3.5 text-[hsl(var(--gradient-solana-green))]" />
-            <span>Powered by Solana + x402</span>
-            <Sparkles className="w-3.5 h-3.5 text-[hsl(var(--gradient-cyan))]" />
-          </div>
-
           <div className="relative inline-block">
             <div className="absolute inset-0 blur-3xl bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] opacity-20 animate-glow-pulse scale-150" />
             <h1 className="relative text-5xl sm:text-7xl font-extrabold tracking-tight gradient-text opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
@@ -58,10 +52,20 @@ export default function Index() {
             </h1>
           </div>
 
-          <p className="mt-4 text-lg sm:text-xl text-muted-foreground max-w-lg mx-auto opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.4s', animationFillMode: 'forwards' }}>
-            On-chain attribution and verification for dance moves
+          <p className="mt-4 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.4s', animationFillMode: 'forwards' }}>
+            On-chain dance skill registry — turning human choreography into verifiable, licensable AI-agent skills
           </p>
-          <p className="mt-2 text-sm text-muted-foreground/60 opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.5s', animationFillMode: 'forwards' }}>
+          <p className="mt-2 text-sm text-muted-foreground/70 max-w-lg mx-auto opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.5s', animationFillMode: 'forwards' }}>
+            Mint NFT certificates for your dance moves. License them to AI agents, metaverse avatars, and robots.
+          </p>
+
+          <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground mt-6 opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.6s', animationFillMode: 'forwards' }}>
+            <Zap className="w-3.5 h-3.5 text-[hsl(var(--gradient-solana-green))]" />
+            <span>Powered by Solana + x402</span>
+            <Sparkles className="w-3.5 h-3.5 text-[hsl(var(--gradient-cyan))]" />
+          </div>
+
+          <p className="mt-3 text-sm text-muted-foreground/60 opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.7s', animationFillMode: 'forwards' }}>
             Built for Colosseum Agent Hackathon by Asura (RyuAsura Dojo)
           </p>
         </header>
@@ -92,19 +96,19 @@ export default function Index() {
           <FeatureCard
             icon={Award}
             title="NFT Certificates"
-            description="Each unique dance move is minted as an NFT with metadata including creator, video hash, and move name."
+            description="Mint your choreography as an on-chain Skill NFT. Each certificate stores creator, expression (text DSL or video), and royalty terms."
             delay="0.8s"
           />
           <FeatureCard
             icon={ShieldCheck}
             title="x402 Verification"
-            description="Pay a small fee to verify move authenticity. Prevents spam and ensures genuine attributions."
+            description="Pay $0.01 via x402 micropayment to verify skill authenticity. Prevents spam and establishes provenance through PayAI facilitator."
             delay="0.9s"
           />
           <FeatureCard
             icon={Coins}
             title="Automatic Royalties"
-            description="When others license your move, royalties automatically flow to your treasury via x402."
+            description="When AI agents, metaverse platforms, or robot manufacturers license your skill, royalties auto-distribute to your treasury on-chain."
             delay="1.0s"
           />
         </section>
@@ -112,7 +116,7 @@ export default function Index() {
         {/* Footer */}
         <footer className="text-center pt-8 border-t border-white/5">
           <p className="text-sm text-muted-foreground/60">
-            MoveRegistry — Empowering dance creators with on-chain IP protection
+            OpenClaw Dance Skill Registry — Empowering dance creators with on-chain IP protection for AI agents and robots
           </p>
           <p className="mt-2">
             <a 
