@@ -70,29 +70,7 @@ export const MOVE_REGISTRY_IDL = {
       },
     },
   ],
-  events: [
-    {
-      name: 'SkillMinted',
-      fields: [
-        { name: 'creator', type: 'pubkey', index: false },
-        { name: 'mint', type: 'pubkey', index: false },
-        { name: 'skillName', type: 'string', index: false },
-      ],
-    },
-    {
-      name: 'SkillVerified',
-      fields: [{ name: 'mint', type: 'pubkey', index: false }],
-    },
-    {
-      name: 'SkillLicensed',
-      fields: [
-        { name: 'mint', type: 'pubkey', index: false },
-        { name: 'payer', type: 'pubkey', index: false },
-        { name: 'amount', type: 'u64', index: false },
-        { name: 'royalty', type: 'u64', index: false },
-      ],
-    },
-  ],
+  events: [],
   errors: [
     { code: 6000, name: 'AlreadyVerified', msg: 'Skill already verified' },
     { code: 6001, name: 'NotVerified', msg: 'Skill not verified' },
