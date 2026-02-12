@@ -13,6 +13,7 @@ export interface MintedMove {
   verified: boolean;
   mintPubkey?: string;
   skillPda?: string;
+  metadataUri?: string;
 }
 
 export function useMintedMoves() {

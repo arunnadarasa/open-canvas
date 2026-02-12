@@ -9,6 +9,8 @@ import {
 } from '@solana/spl-token';
 import { fetchX402Requirements, verifyX402Payment, buildX402PaymentHeader, type X402PaymentRequirement } from '@/lib/x402';
 import { buildMintSkillTransaction, buildVerifySkillTransaction } from '@/lib/anchor-client';
+import { fetchMetadataUri, buildCreateMetadataInstruction, getUmi } from '@/lib/metaplex';
+import { toWeb3JsTransaction } from '@metaplex-foundation/umi-web3js-adapters';
 import { ExternalLink, RefreshCw, AlertTriangle, CheckCircle2, Loader2, Wallet } from 'lucide-react';
 
 const connection = new Connection(import.meta.env.VITE_SOLANA_RPC || 'https://api.devnet.solana.com');
@@ -16,7 +18,7 @@ const SOL_AMOUNT_LAMPORTS = 100_000;
 
 type PaymentMethod = 'usdc' | 'sol';
 
-export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol'; mintPubkey?: string; skillPda?: string }) => void; isWorldIDVerified?: boolean; onRequestVerify?: () => void }) {
+export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol'; mintPubkey?: string; skillPda?: string; metadataUri?: string }) => void; isWorldIDVerified?: boolean; onRequestVerify?: () => void }) {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const [moveName, setMoveName] = useState('');
   const [videoHash, setVideoHash] = useState('');
@@ -91,13 +93,51 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
       await connection.confirmTransaction(mintSignature);
 
       setTxSignature(mintSignature);
-      setStatus(`✅ On-chain mint confirmed! Tx: ${mintSignature.slice(0, 8)}...`);
+      setStatus(`✅ On-chain mint confirmed! Tx: ${mintSignature.slice(0, 8)}... Attaching metadata...`);
 
-      // Step 2: Handle payment (x402 USDC or SOL)
+      // Step 2: Create Metaplex NFT metadata
+      let metadataUri = '';
+      try {
+        setStatus('Generating NFT metadata...');
+        metadataUri = await fetchMetadataUri({
+          moveName,
+          description: `Dance move NFT: ${moveName}`,
+          videoHash,
+          creator: fromPubkey.toBase58(),
+          royaltyPercent: royalty,
+        });
+
+        setStatus('Building Metaplex metadata transaction...');
+        const metaplexTxBuilder = buildCreateMetadataInstruction({
+          mintPublicKey: mintKeypair.publicKey,
+          creatorPublicKey: fromPubkey,
+          name: moveName,
+          uri: metadataUri,
+          sellerFeeBasisPoints: royalty * 100,
+        });
+
+        const umi = getUmi();
+        const umiTx = await metaplexTxBuilder.buildWithLatestBlockhash(umi);
+        const web3Tx = toWeb3JsTransaction(umiTx);
+
+        setStatus('Please sign the metadata transaction in your wallet...');
+        const signedMetaTx = await phantom.signTransaction(web3Tx);
+        const serializedMetaTx = signedMetaTx.serialize();
+
+        setStatus('Broadcasting metadata transaction...');
+        const metaSig = await connection.sendRawTransaction(serializedMetaTx);
+        await connection.confirmTransaction(metaSig);
+        setStatus(`✅ Metadata attached! Now processing payment...`);
+      } catch (metaErr: any) {
+        console.warn('Metaplex metadata step failed:', metaErr);
+        setStatus(`⚠️ Metadata attachment failed (${metaErr.message?.slice(0, 60)}). Continuing with payment...`);
+      }
+
+      // Step 3: Handle payment (x402 USDC or SOL)
       if (paymentMethod === 'usdc') {
-        await handleUSDCPayment(fromPubkey, phantom, skillPDA, mintKeypair.publicKey.toBase58(), skillPDA.toBase58(), mintSignature);
+        await handleUSDCPayment(fromPubkey, phantom, skillPDA, mintKeypair.publicKey.toBase58(), skillPDA.toBase58(), mintSignature, metadataUri);
       } else {
-        await handleSOLPayment(fromPubkey, phantom, mintKeypair.publicKey.toBase58(), skillPDA.toBase58(), mintSignature);
+        await handleSOLPayment(fromPubkey, phantom, mintKeypair.publicKey.toBase58(), skillPDA.toBase58(), mintSignature, metadataUri);
       }
     } catch (error: any) {
       console.error('Mint error:', error);
@@ -105,7 +145,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
     }
   }, [authenticated, moveName, videoHash, royalty, user, paymentMethod]);
 
-  const handleSOLPayment = async (fromPubkey: PublicKey, phantom: any, mintPubkey: string, skillPda: string, mintSignature: string) => {
+  const handleSOLPayment = async (fromPubkey: PublicKey, phantom: any, mintPubkey: string, skillPda: string, mintSignature: string, metadataUri?: string) => {
     setStatus('Preparing SOL payment...');
     const paymentReq = await fetchX402Requirements();
     const recipientPubkey = new PublicKey(paymentReq.to);
@@ -132,10 +172,10 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
 
     setVerifiedContent({ message: 'SOL payment confirmed on-chain' });
     setStatus(`✅ Move "${moveName}" minted and paid! SOL tx: ${signature.slice(0, 8)}...`);
-    onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'sol', mintPubkey, skillPda });
+    onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'sol', mintPubkey, skillPda, metadataUri });
   };
 
-  const handleUSDCPayment = async (fromPubkey: PublicKey, phantom: any, skillPDA: PublicKey, mintPubkey: string, skillPda: string, mintSignature: string) => {
+  const handleUSDCPayment = async (fromPubkey: PublicKey, phantom: any, skillPDA: PublicKey, mintPubkey: string, skillPda: string, mintSignature: string, metadataUri?: string) => {
     setStatus('Fetching x402 payment requirements...');
     const paymentReq = await fetchX402Requirements();
     paymentReqRef.current = paymentReq;
@@ -203,7 +243,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
         setStatus(`✅ Move "${moveName}" minted! x402 verified. On-chain verify: ${verifyErr.message?.slice(0, 60)}`);
       }
 
-      onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'usdc', mintPubkey, skillPda });
+      onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'usdc', mintPubkey, skillPda, metadataUri });
     } catch (verifyErr: any) {
       const errMsg = typeof verifyErr === 'object' ? (verifyErr.message || JSON.stringify(verifyErr)) : String(verifyErr);
       setStatus(`⚠️ Facilitator verification failed: ${errMsg}`);

@@ -86,6 +86,19 @@ export default function NFTCertificate({ move, isNew }: { move: MintedMove; isNe
                 <span className="text-yellow-400">Pending verification</span>
               )}
             </div>
+            {move.metadataUri && (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="text-foreground/70">Metadata:</span>
+                <a
+                  href={move.metadataUri}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:text-primary/80 truncate transition-colors"
+                >
+                  View JSON ↗
+                </a>
+              </div>
+            )}
             <div className="text-muted-foreground">
               Minted: {new Date(move.mintedAt).toLocaleDateString()}
             </div>
