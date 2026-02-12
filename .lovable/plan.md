@@ -1,34 +1,67 @@
 
 
-## Rebrand Hero Section with OpenClaw Context
+## World ID Verification Gate
 
-Move the "Powered by Solana + x402" badge below the title and update all copy to reflect the OpenClaw Dance Skill Registry identity from the README.
+Add World ID proof-of-personhood verification as a required step before users can connect their wallet and mint. The app ID is `app_0abc6adff26c25102bd04dc58f5a66a8` with action `moveregistry`.
 
-### Changes to `src/pages/Index.tsx`
-
-**Hero Section reorder (lines 47-67)**:
-1. Remove the "Powered by Solana + x402" badge from above the title
-2. Place it below the subtitle instead
-3. Update subtitle to: "On-chain dance skill registry -- turning human choreography into verifiable, licensable AI-agent skills"
-4. Update secondary text to: "Mint NFT certificates for your dance moves. License them to AI agents, metaverse avatars, and robots."
-5. Keep "Built for Colosseum Agent Hackathon by Asura (RyuAsura Dojo)"
-
-**Feature card descriptions (lines 91-110)**:
-- Update NFT Certificates: "Mint your choreography as an on-chain Skill NFT. Each certificate stores creator, expression (text DSL or video), and royalty terms."
-- Update x402 Verification: "Pay $0.01 via x402 micropayment to verify skill authenticity. Prevents spam and establishes provenance through PayAI facilitator."
-- Update Automatic Royalties: "When AI agents, metaverse platforms, or robot manufacturers license your skill, royalties auto-distribute to your treasury on-chain."
-
-**Footer (lines 113-127)**:
-- Update text to: "OpenClaw Dance Skill Registry -- Empowering dance creators with on-chain IP protection for AI agents and robots"
-
-### New hero order
+### Flow
 
 ```text
-MoveRegistry (title)
-On-chain dance skill registry... (subtitle)
-Mint NFT certificates... (description)
-[Powered by Solana + x402 badge]
-Built for Colosseum Agent Hackathon...
+User lands on page
+  -> Sees "Verify with World ID" button (wallet connect is hidden)
+  -> Completes World ID verification in IDKit widget
+  -> Proof is sent to backend edge function for cloud verification
+  -> On success, verification state is stored in localStorage
+  -> Wallet connect button becomes available
+  -> User can now mint
 ```
 
-No new files needed. Only `src/pages/Index.tsx` is modified.
+### Files to Create
+
+**1. `src/components/WorldIDVerify.tsx`**
+- Uses `IDKitWidget` from `@worldcoin/idkit`
+- App ID: `app_0abc6adff26c25102bd04dc58f5a66a8`, action: `moveregistry`
+- `handleVerify` callback sends proof to the edge function
+- On success, calls a callback to unlock wallet connection
+- Shows verification badge (green shield) when verified
+- Glassmorphism styling consistent with existing design
+
+**2. `supabase/functions/verify-worldid/index.ts`**
+- Receives proof payload (merkle_root, nullifier_hash, proof, verification_level)
+- Calls `https://developer.worldcoin.org/api/v2/verify/app_0abc6adff26c25102bd04dc58f5a66a8`
+- Returns success/failure to frontend
+- No database table needed -- verification state lives in localStorage (no auth system in this app)
+- CORS headers included
+
+### Files to Modify
+
+**3. `src/components/MoveMint.tsx`**
+- Add `isWorldIDVerified` prop
+- When not verified, show the WorldIDVerify component instead of the wallet connect button
+- When verified, show a small "Human Verified" badge next to the wallet section
+- Gate the entire wallet connect flow behind verification
+
+**4. `src/pages/Index.tsx`**
+- Add `worldIdVerified` state (persisted in localStorage)
+- Pass it down to MoveMint
+
+**5. `supabase/config.toml`**
+- Add `[functions.verify-worldid]` with `verify_jwt = false` (public endpoint, no auth)
+
+**6. `package.json`**
+- Add `@worldcoin/idkit` dependency
+
+### Edge Function Details
+
+The verify-worldid function will:
+- Accept POST with `{ merkle_root, nullifier_hash, proof, verification_level }`
+- Forward to World ID cloud verification API
+- Return `{ success: true }` or `{ success: false, error: "..." }`
+- No secrets needed -- the app ID is public and hardcoded in the verification URL
+
+### UI Design
+
+- Before verification: Large "Verify You're Human" card with World ID button, replaces the wallet connect area
+- After verification: Small green "Verified Human" badge, wallet connect becomes available
+- The verification persists in localStorage so users don't re-verify on page refresh
+
