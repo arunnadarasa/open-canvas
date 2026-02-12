@@ -1,93 +1,149 @@
 import { useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { Buffer } from 'buffer';
+import { Connection, PublicKey, Transaction } from '@solana/web3.js';
+import {
+  getAssociatedTokenAddress,
+  createTransferInstruction,
+  createAssociatedTokenAccountInstruction,
+  getAccount,
+} from '@solana/spl-token';
+import { fetchX402Requirements, verifyX402Payment } from '@/lib/x402';
 
-const connection = new Connection(import.meta.env.VITE_SOLANA_RPC || 'https://api.devnet.solana.com')
-
-// Program ID from deployed Anchor program
-const PROGRAM_ID = new PublicKey(import.meta.env.VITE_PROGRAM_ID || 'Dp2JcVDt4seef6LbPCtoHiD5nrHkRUFHJdBPdCUTVeDQ')
+const connection = new Connection(import.meta.env.VITE_SOLANA_RPC || 'https://api.devnet.solana.com');
 
 export default function MoveMint() {
-  const { ready, authenticated, login, logout, user } = usePrivy()
-  const [moveName, setMoveName] = useState('')
-  const [videoHash, setVideoHash] = useState('')
-  const [royalty, setRoyalty] = useState(5)
-  const [status, setStatus] = useState('')
-  const [txSignature, setTxSignature] = useState<string | null>(null)
-  const [isConnecting, setIsConnecting] = useState(false)
+  const { ready, authenticated, login, logout, user } = usePrivy();
+  const [moveName, setMoveName] = useState('');
+  const [videoHash, setVideoHash] = useState('');
+  const [royalty, setRoyalty] = useState(5);
+  const [status, setStatus] = useState('');
+  const [txSignature, setTxSignature] = useState<string | null>(null);
+  const [verifiedContent, setVerifiedContent] = useState<any>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  // Get wallet address directly from Privy's authenticated user object
-  const connectedAddress = user?.wallet?.address || null
-  const isEthereumWallet = connectedAddress && connectedAddress.startsWith('0x')
+  const connectedAddress = user?.wallet?.address || null;
+  const isEthereumWallet = connectedAddress && connectedAddress.startsWith('0x');
 
   const mintMove = useCallback(async () => {
     if (!authenticated) {
-      setStatus('Please connect your wallet first.')
-      return
+      setStatus('Please connect your wallet first.');
+      return;
     }
 
     if (!moveName.trim() || !videoHash.trim()) {
-      setStatus('Please fill in all fields.')
-      return
+      setStatus('Please fill in all fields.');
+      return;
     }
 
     try {
-      setStatus('Preparing transaction...')
-      const walletAddress = user?.wallet?.address
-      if (!walletAddress) throw new Error('Wallet address not available. Please reconnect your wallet.')
-      
-      // Validate it's a Solana address (not Ethereum 0x format)
+      // Step 1: Fetch x402 payment requirements
+      setStatus('Fetching payment requirements...');
+      const paymentReq = await fetchX402Requirements();
+
+      setStatus(
+        `Payment required: ${paymentReq.amount} ${paymentReq.tokenSymbol} → ${paymentReq.to.slice(0, 6)}...${paymentReq.to.slice(-4)}`
+      );
+
+      const walletAddress = user?.wallet?.address;
+      if (!walletAddress) throw new Error('Wallet address not available.');
       if (walletAddress.startsWith('0x')) {
-        throw new Error('Please connect a Solana wallet (Phantom Solana, not Ethereum). The connected wallet appears to be an Ethereum wallet.')
+        throw new Error('Please connect a Solana wallet, not Ethereum.');
       }
-      
-      // Try to create PublicKey - will throw if not valid Base58
-      let fromPubkey: PublicKey
+
+      let fromPubkey: PublicKey;
       try {
-        fromPubkey = new PublicKey(walletAddress)
-      } catch (e) {
-        throw new Error(`Invalid Solana address: ${walletAddress}. Please ensure you're connected with a Solana wallet.`)
+        fromPubkey = new PublicKey(walletAddress);
+      } catch {
+        throw new Error(`Invalid Solana address: ${walletAddress}`);
       }
 
-      // Derive treasury PDA: seeds = ["treasury"]
-      const treasuryPDA = PublicKey.findProgramAddressSync(
-        [Buffer.from('treasury')],
-        PROGRAM_ID
-      )[0]
+      // Step 2: Build USDC SPL token transfer
+      setStatus(`Preparing ${paymentReq.tokenSymbol} transfer...`);
 
-      // Send a small amount (0.001 SOL) to treasury as "mint fee"
-      const amountLamports = 0.001 * LAMPORTS_PER_SOL
+      const usdcMint = new PublicKey(paymentReq.token);
+      const recipientPubkey = new PublicKey(paymentReq.to);
 
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey,
-          toPubkey: treasuryPDA,
-          lamports: amountLamports,
-        })
-      )
+      // USDC has 6 decimals
+      const amount = Math.round(parseFloat(paymentReq.amount) * 1_000_000);
 
-      const { blockhash } = await connection.getLatestBlockhash()
-      transaction.recentBlockhash = blockhash
-      transaction.feePayer = fromPubkey
+      const senderATA = await getAssociatedTokenAddress(usdcMint, fromPubkey);
+      const recipientATA = await getAssociatedTokenAddress(usdcMint, recipientPubkey);
 
-      setStatus('Please sign the transaction in your wallet...')
-      // Sign directly with Phantom's browser provider (bypasses Privy's wallet registry)
-      const phantom = (window as any).solana
-      if (!phantom?.signTransaction) throw new Error('Phantom wallet not available for signing. Please ensure Phantom is installed and unlocked.')
-      const signedTx = await phantom.signTransaction(transaction)
-      // Serialize the signed transaction to send it
-      const serializedTx = signedTx.serialize()
-      const signature = await connection.sendRawTransaction(serializedTx)
-      await connection.confirmTransaction(signature)
+      const transaction = new Transaction();
 
-      setTxSignature(signature)
-      setStatus(`✅ Move minted! Treasury fee paid (0.001 SOL).\nTransaction: ${signature}`)
+      // Check if recipient ATA exists, create if not
+      try {
+        await getAccount(connection, recipientATA);
+      } catch {
+        transaction.add(
+          createAssociatedTokenAccountInstruction(
+            fromPubkey,
+            recipientATA,
+            recipientPubkey,
+            usdcMint
+          )
+        );
+      }
+
+      // Check sender has USDC
+      try {
+        const senderAccount = await getAccount(connection, senderATA);
+        if (Number(senderAccount.amount) < amount) {
+          throw new Error(
+            `Insufficient USDC balance. You need ${paymentReq.amount} USDC (devnet). Get devnet USDC from a faucet.`
+          );
+        }
+      } catch (e: any) {
+        if (e.message?.includes('Insufficient')) throw e;
+        throw new Error(
+          'No USDC token account found. You need devnet USDC in your wallet. Get some from a Solana devnet USDC faucet.'
+        );
+      }
+
+      transaction.add(
+        createTransferInstruction(senderATA, recipientATA, fromPubkey, amount)
+      );
+
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = fromPubkey;
+
+      // Step 3: Sign and broadcast
+      setStatus(`Please sign the ${paymentReq.amount} ${paymentReq.tokenSymbol} payment in your wallet...`);
+
+      const phantom = (window as any).solana;
+      if (!phantom?.signTransaction) {
+        throw new Error('Phantom wallet not available for signing.');
+      }
+
+      const signedTx = await phantom.signTransaction(transaction);
+      const serializedTx = signedTx.serialize();
+
+      setStatus('Broadcasting payment...');
+      const signature = await connection.sendRawTransaction(serializedTx);
+      await connection.confirmTransaction(signature);
+
+      setTxSignature(signature);
+      setStatus(`Payment sent! Verifying with x402...`);
+
+      // Step 4: Verify payment via x402
+      try {
+        const verified = await verifyX402Payment(signature);
+        setVerifiedContent(verified);
+        setStatus(
+          `✅ Payment verified! Move "${moveName}" minted successfully.\nPaid ${paymentReq.amount} ${paymentReq.tokenSymbol}.`
+        );
+      } catch (verifyErr: any) {
+        // Payment was made but verification may need retry
+        setStatus(
+          `⚠️ Payment sent (${signature.slice(0, 8)}...) but verification pending. The x402 endpoint may need a moment to confirm. Try refreshing.`
+        );
+      }
     } catch (error: any) {
-      console.error('Mint error:', error)
-      setStatus(`❌ Error: ${error.message || 'Unknown error'}`)
+      console.error('Mint error:', error);
+      setStatus(`❌ Error: ${error.message || 'Unknown error'}`);
     }
-  }, [authenticated, moveName, videoHash, royalty, user])
+  }, [authenticated, moveName, videoHash, royalty, user]);
 
   return (
     <div>
@@ -96,28 +152,23 @@ export default function MoveMint() {
           <div>
             <button
               onClick={async () => {
-                setIsConnecting(true)
-                setStatus('')
+                setIsConnecting(true);
+                setStatus('');
                 try {
-                  // Check if Phantom is installed and available
-                  const phantom = typeof window !== 'undefined' ? (window as any).solana : null
+                  const phantom = typeof window !== 'undefined' ? (window as any).solana : null;
                   if (phantom?.isPhantom) {
-                    setStatus('Phantom detected. Please approve the connection in Phantom...')
+                    setStatus('Phantom detected. Please approve the connection in Phantom...');
                   } else {
-                    setStatus('⚠️ Phantom wallet not detected. Please install Phantom extension.')
-                    setIsConnecting(false)
-                    return
+                    setStatus('⚠️ Phantom wallet not detected. Please install Phantom extension.');
+                    setIsConnecting(false);
+                    return;
                   }
-                  
-                  // Use login() for initial authentication (connectWallet is for linking to authenticated users)
-                  // login() will show the Privy modal which should detect Phantom based on PrivyProvider config
-                  await login()
-                  
-                  setIsConnecting(false)
+                  await login();
+                  setIsConnecting(false);
                 } catch (error: any) {
-                  console.error('Wallet connection error:', error)
-                  setStatus(`❌ Connection failed: ${error.message || 'Please ensure Phantom is installed and unlocked'}`)
-                  setIsConnecting(false)
+                  console.error('Wallet connection error:', error);
+                  setStatus(`❌ Connection failed: ${error.message || 'Please ensure Phantom is installed and unlocked'}`);
+                  setIsConnecting(false);
                 }
               }}
               disabled={isConnecting || !ready}
@@ -125,8 +176,8 @@ export default function MoveMint() {
                 padding: '0.75rem 1.5rem',
                 borderRadius: 8,
                 border: 'none',
-                background: isConnecting || !ready 
-                  ? 'rgba(255,255,255,0.3)' 
+                background: isConnecting || !ready
+                  ? 'rgba(255,255,255,0.3)'
                   : 'linear-gradient(90deg, #00dbde, #fc00ff)',
                 color: '#fff',
                 fontWeight: 700,
@@ -275,7 +326,7 @@ export default function MoveMint() {
               opacity: (!moveName || !videoHash) ? 0.6 : 1,
             }}
           >
-            Mint Move NFT (Devnet)
+            Mint Move NFT (x402 · $0.01 USDC)
           </button>
         </form>
       )}
@@ -285,8 +336,8 @@ export default function MoveMint() {
           marginTop: '1rem',
           padding: '1rem',
           borderRadius: 8,
-          background: status.startsWith('✅') ? 'rgba(0,219,222,0.1)' : status.startsWith('❌') ? 'rgba(255,0,0,0.1)' : 'rgba(255,255,255,0.05)',
-          border: `1px solid ${status.startsWith('✅') ? '#00dbde' : status.startsWith('❌') ? '#ff4444' : 'rgba(255,255,255,0.1)'}`,
+          background: status.startsWith('✅') ? 'rgba(0,219,222,0.1)' : status.startsWith('❌') ? 'rgba(255,0,0,0.1)' : status.startsWith('⚠️') ? 'rgba(255,165,0,0.1)' : 'rgba(255,255,255,0.05)',
+          border: `1px solid ${status.startsWith('✅') ? '#00dbde' : status.startsWith('❌') ? '#ff4444' : status.startsWith('⚠️') ? '#ffa500' : 'rgba(255,255,255,0.1)'}`,
         }}>
           <p style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.9rem' }}>{status}</p>
           {txSignature && (
@@ -296,15 +347,20 @@ export default function MoveMint() {
               rel="noopener noreferrer"
               style={{ color: '#00dbde', fontSize: '0.85rem', marginTop: '0.5rem', display: 'block' }}
             >
-              View on Solscan Devnet →
+              View payment on Solscan Devnet →
             </a>
+          )}
+          {verifiedContent && (
+            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#00dbde' }}>
+              x402 verified ✓
+            </p>
           )}
         </div>
       )}
 
       <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', opacity: 0.6 }}>
-        This sends a fee to the treasury PDA, demonstrating the on-chain workflow. The full NFT mint and metadata are handled by the deployed Anchor program.
+        Minting uses x402 payment protocol — $0.01 USDC on Solana Devnet. You need devnet USDC in your Phantom wallet.
       </p>
     </div>
-  )
+  );
 }
