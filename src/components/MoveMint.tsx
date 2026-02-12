@@ -1,15 +1,20 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { Connection, PublicKey, Transaction } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import {
   getAssociatedTokenAddress,
   createTransferInstruction,
   createAssociatedTokenAccountInstruction,
   getAccount,
 } from '@solana/spl-token';
-import { fetchX402Requirements, verifyX402Payment } from '@/lib/x402';
+import { fetchX402Requirements, verifyX402Payment, type X402PaymentRequirement } from '@/lib/x402';
 
 const connection = new Connection(import.meta.env.VITE_SOLANA_RPC || 'https://api.devnet.solana.com');
+
+// Devnet SOL equivalent for $0.01 USDC (SOL is free on devnet, so this is symbolic)
+const SOL_AMOUNT_LAMPORTS = 100_000; // 0.0001 SOL
+
+type PaymentMethod = 'usdc' | 'sol';
 
 export default function MoveMint() {
   const { ready, authenticated, login, logout, user } = usePrivy();
@@ -20,6 +25,11 @@ export default function MoveMint() {
   const [txSignature, setTxSignature] = useState<string | null>(null);
   const [verifiedContent, setVerifiedContent] = useState<any>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('usdc');
+
+  // Store payment req and signed tx for retry verification
+  const paymentReqRef = useRef<X402PaymentRequirement | null>(null);
+  const signedTxBase64Ref = useRef<string | null>(null);
 
   const connectedAddress = user?.wallet?.address || null;
   const isEthereumWallet = connectedAddress && connectedAddress.startsWith('0x');
@@ -35,115 +45,176 @@ export default function MoveMint() {
       return;
     }
 
+    const walletAddress = user?.wallet?.address;
+    if (!walletAddress) {
+      setStatus('Wallet address not available.');
+      return;
+    }
+    if (walletAddress.startsWith('0x')) {
+      setStatus('Please connect a Solana wallet, not Ethereum.');
+      return;
+    }
+
+    let fromPubkey: PublicKey;
     try {
-      // Step 1: Fetch x402 payment requirements
-      setStatus('Fetching payment requirements...');
-      const paymentReq = await fetchX402Requirements();
+      fromPubkey = new PublicKey(walletAddress);
+    } catch {
+      setStatus(`Invalid Solana address: ${walletAddress}`);
+      return;
+    }
 
-      setStatus(
-        `Payment required: ${paymentReq.amount} ${paymentReq.tokenSymbol} → ${paymentReq.to.slice(0, 6)}...${paymentReq.to.slice(-4)}`
-      );
+    const phantom = (window as any).solana;
+    if (!phantom?.signTransaction) {
+      setStatus('Phantom wallet not available for signing.');
+      return;
+    }
 
-      const walletAddress = user?.wallet?.address;
-      if (!walletAddress) throw new Error('Wallet address not available.');
-      if (walletAddress.startsWith('0x')) {
-        throw new Error('Please connect a Solana wallet, not Ethereum.');
-      }
-
-      let fromPubkey: PublicKey;
-      try {
-        fromPubkey = new PublicKey(walletAddress);
-      } catch {
-        throw new Error(`Invalid Solana address: ${walletAddress}`);
-      }
-
-      // Step 2: Build USDC SPL token transfer
-      setStatus(`Preparing ${paymentReq.tokenSymbol} transfer...`);
-
-      const usdcMint = new PublicKey(paymentReq.token);
-      const recipientPubkey = new PublicKey(paymentReq.to);
-
-      // USDC has 6 decimals
-      const amount = Math.round(parseFloat(paymentReq.amount) * 1_000_000);
-
-      const senderATA = await getAssociatedTokenAddress(usdcMint, fromPubkey);
-      const recipientATA = await getAssociatedTokenAddress(usdcMint, recipientPubkey);
-
-      const transaction = new Transaction();
-
-      // Check if recipient ATA exists, create if not
-      try {
-        await getAccount(connection, recipientATA);
-      } catch {
-        transaction.add(
-          createAssociatedTokenAccountInstruction(
-            fromPubkey,
-            recipientATA,
-            recipientPubkey,
-            usdcMint
-          )
-        );
-      }
-
-      // Check sender has USDC
-      try {
-        const senderAccount = await getAccount(connection, senderATA);
-        if (Number(senderAccount.amount) < amount) {
-          throw new Error(
-            `Insufficient USDC balance. You need ${paymentReq.amount} USDC (devnet). Get devnet USDC from a faucet.`
-          );
-        }
-      } catch (e: any) {
-        if (e.message?.includes('Insufficient')) throw e;
-        throw new Error(
-          'No USDC token account found. You need devnet USDC in your wallet. Get some from a Solana devnet USDC faucet.'
-        );
-      }
-
-      transaction.add(
-        createTransferInstruction(senderATA, recipientATA, fromPubkey, amount)
-      );
-
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = fromPubkey;
-
-      // Step 3: Sign and broadcast
-      setStatus(`Please sign the ${paymentReq.amount} ${paymentReq.tokenSymbol} payment in your wallet...`);
-
-      const phantom = (window as any).solana;
-      if (!phantom?.signTransaction) {
-        throw new Error('Phantom wallet not available for signing.');
-      }
-
-      const signedTx = await phantom.signTransaction(transaction);
-      const serializedTx = signedTx.serialize();
-
-      setStatus('Broadcasting payment...');
-      const signature = await connection.sendRawTransaction(serializedTx);
-      await connection.confirmTransaction(signature);
-
-      setTxSignature(signature);
-      setStatus(`Payment sent! Verifying with x402...`);
-
-      // Step 4: Verify payment via x402
-      try {
-        const verified = await verifyX402Payment(signature);
-        setVerifiedContent(verified);
-        setStatus(
-          `✅ Payment verified! Move "${moveName}" minted successfully.\nPaid ${paymentReq.amount} ${paymentReq.tokenSymbol}.`
-        );
-      } catch (verifyErr: any) {
-        // Payment was made but verification may need retry
-        setStatus(
-          `⚠️ Payment sent (${signature.slice(0, 8)}...) but verification pending. The x402 endpoint may need a moment to confirm. Try refreshing.`
-        );
+    try {
+      if (paymentMethod === 'sol') {
+        await mintWithSOL(fromPubkey, phantom);
+      } else {
+        await mintWithUSDC(fromPubkey, phantom);
       }
     } catch (error: any) {
       console.error('Mint error:', error);
       setStatus(`❌ Error: ${error.message || 'Unknown error'}`);
     }
-  }, [authenticated, moveName, videoHash, royalty, user]);
+  }, [authenticated, moveName, videoHash, royalty, user, paymentMethod]);
+
+  const mintWithSOL = async (fromPubkey: PublicKey, phantom: any) => {
+    setStatus('Fetching payment requirements...');
+    const paymentReq = await fetchX402Requirements();
+    const recipientPubkey = new PublicKey(paymentReq.to);
+
+    setStatus(`Preparing SOL transfer (0.0001 SOL) → ${paymentReq.to.slice(0, 6)}...${paymentReq.to.slice(-4)}`);
+
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey,
+        toPubkey: recipientPubkey,
+        lamports: SOL_AMOUNT_LAMPORTS,
+      })
+    );
+
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = fromPubkey;
+
+    setStatus('Please sign the 0.0001 SOL payment in your wallet...');
+    const signedTx = await phantom.signTransaction(transaction);
+    const serializedTx = signedTx.serialize();
+
+    setStatus('Broadcasting SOL payment...');
+    const signature = await connection.sendRawTransaction(serializedTx);
+    await connection.confirmTransaction(signature);
+
+    setTxSignature(signature);
+    paymentReqRef.current = null;
+    signedTxBase64Ref.current = null;
+    setVerifiedContent({ message: 'SOL payment confirmed on-chain' });
+    setStatus(
+      `✅ SOL payment confirmed! Move "${moveName}" minted successfully.\nPaid 0.0001 SOL.`
+    );
+  };
+
+  const mintWithUSDC = async (fromPubkey: PublicKey, phantom: any) => {
+    // Step 1: Fetch x402 payment requirements
+    setStatus('Fetching payment requirements...');
+    const paymentReq = await fetchX402Requirements();
+    paymentReqRef.current = paymentReq;
+
+    setStatus(
+      `Payment required: ${paymentReq.amount} ${paymentReq.tokenSymbol} → ${paymentReq.to.slice(0, 6)}...${paymentReq.to.slice(-4)}`
+    );
+
+    // Step 2: Build USDC SPL token transfer
+    setStatus(`Preparing ${paymentReq.tokenSymbol} transfer...`);
+
+    const usdcMint = new PublicKey(paymentReq.token);
+    const recipientPubkey = new PublicKey(paymentReq.to);
+    const amount = Math.round(parseFloat(paymentReq.amount) * 1_000_000);
+
+    const senderATA = await getAssociatedTokenAddress(usdcMint, fromPubkey);
+    const recipientATA = await getAssociatedTokenAddress(usdcMint, recipientPubkey);
+
+    const transaction = new Transaction();
+
+    // Check if recipient ATA exists, create if not
+    try {
+      await getAccount(connection, recipientATA);
+    } catch {
+      transaction.add(
+        createAssociatedTokenAccountInstruction(
+          fromPubkey, recipientATA, recipientPubkey, usdcMint
+        )
+      );
+    }
+
+    // Check sender has USDC
+    try {
+      const senderAccount = await getAccount(connection, senderATA);
+      if (Number(senderAccount.amount) < amount) {
+        throw new Error(
+          `Insufficient USDC balance. You need ${paymentReq.amount} USDC (devnet).`
+        );
+      }
+    } catch (e: any) {
+      if (e.message?.includes('Insufficient')) throw e;
+      throw new Error('No USDC token account found. You need devnet USDC in your wallet.');
+    }
+
+    transaction.add(
+      createTransferInstruction(senderATA, recipientATA, fromPubkey, amount)
+    );
+
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = fromPubkey;
+
+    // Step 3: Sign and capture the signed transaction BEFORE broadcasting
+    setStatus(`Please sign the ${paymentReq.amount} ${paymentReq.tokenSymbol} payment in your wallet...`);
+    const signedTx = await phantom.signTransaction(transaction);
+    const serializedTx = signedTx.serialize();
+
+    // Capture signed tx as base64 for x402 verification
+    const signedTxBase64 = Buffer.from(serializedTx).toString('base64');
+    signedTxBase64Ref.current = signedTxBase64;
+
+    setStatus('Broadcasting payment...');
+    const signature = await connection.sendRawTransaction(serializedTx);
+    await connection.confirmTransaction(signature);
+
+    setTxSignature(signature);
+    setStatus('Payment sent! Verifying with x402...');
+
+    // Step 4: Verify payment via x402 with proper v2 header
+    try {
+      const verified = await verifyX402Payment(signedTxBase64, paymentReq);
+      setVerifiedContent(verified);
+      setStatus(
+        `✅ Payment verified! Move "${moveName}" minted successfully.\nPaid ${paymentReq.amount} ${paymentReq.tokenSymbol}.`
+      );
+    } catch (verifyErr: any) {
+      setStatus(
+        `⚠️ Payment sent (${signature.slice(0, 8)}...) but verification pending. The x402 endpoint may need a moment to confirm. Try refreshing.`
+      );
+    }
+  };
+
+  const retryVerification = async () => {
+    if (!signedTxBase64Ref.current || !paymentReqRef.current) {
+      setStatus('⚠️ Cannot retry: missing signed transaction data. Please mint again.');
+      return;
+    }
+    setStatus('Retrying verification...');
+    try {
+      const verified = await verifyX402Payment(signedTxBase64Ref.current, paymentReqRef.current);
+      setVerifiedContent(verified);
+      setStatus(`✅ Payment verified! Move "${moveName}" minted successfully.`);
+    } catch (err: any) {
+      setStatus(`⚠️ Verification still pending: ${err.message || 'Try again in a moment.'}`);
+    }
+  };
 
   return (
     <div>
@@ -297,7 +368,7 @@ export default function MoveMint() {
             />
           </div>
 
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
               Royalty Percentage: {royalty}%
             </label>
@@ -311,6 +382,68 @@ export default function MoveMint() {
             />
           </div>
 
+          {/* Payment Method Toggle */}
+          <div style={{
+            marginBottom: '1.5rem',
+            padding: '0.75rem',
+            borderRadius: 8,
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+          }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.9rem' }}>
+              Payment Method
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('usdc')}
+                style={{
+                  flex: 1,
+                  padding: '0.6rem',
+                  borderRadius: 6,
+                  border: paymentMethod === 'usdc'
+                    ? '2px solid #00dbde'
+                    : '1px solid rgba(255,255,255,0.2)',
+                  background: paymentMethod === 'usdc'
+                    ? 'rgba(0, 219, 222, 0.15)'
+                    : 'transparent',
+                  color: paymentMethod === 'usdc' ? '#00dbde' : '#fff',
+                  fontWeight: paymentMethod === 'usdc' ? 700 : 400,
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                }}
+              >
+                💵 USDC (x402)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('sol')}
+                style={{
+                  flex: 1,
+                  padding: '0.6rem',
+                  borderRadius: 6,
+                  border: paymentMethod === 'sol'
+                    ? '2px solid #9945FF'
+                    : '1px solid rgba(255,255,255,0.2)',
+                  background: paymentMethod === 'sol'
+                    ? 'rgba(153, 69, 255, 0.15)'
+                    : 'transparent',
+                  color: paymentMethod === 'sol' ? '#9945FF' : '#fff',
+                  fontWeight: paymentMethod === 'sol' ? 700 : 400,
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                }}
+              >
+                ◎ SOL (Direct)
+              </button>
+            </div>
+            <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.75rem', opacity: 0.5 }}>
+              {paymentMethod === 'usdc'
+                ? 'Pay $0.01 USDC via x402 protocol with on-chain verification'
+                : 'Pay 0.0001 SOL directly (devnet) — no x402 verification'}
+            </p>
+          </div>
+
           <button
             type="submit"
             disabled={!moveName || !videoHash}
@@ -319,14 +452,18 @@ export default function MoveMint() {
               padding: '1rem',
               borderRadius: 8,
               border: 'none',
-              background: 'linear-gradient(90deg, #00dbde, #fc00ff)',
+              background: paymentMethod === 'sol'
+                ? 'linear-gradient(90deg, #9945FF, #14F195)'
+                : 'linear-gradient(90deg, #00dbde, #fc00ff)',
               color: '#fff',
               fontWeight: 700,
               cursor: (!moveName || !videoHash) ? 'not-allowed' : 'pointer',
               opacity: (!moveName || !videoHash) ? 0.6 : 1,
             }}
           >
-            Mint Move NFT (x402 · $0.01 USDC)
+            {paymentMethod === 'usdc'
+              ? 'Mint Move NFT (x402 · $0.01 USDC)'
+              : 'Mint Move NFT (◎ 0.0001 SOL)'}
           </button>
         </form>
       )}
@@ -350,18 +487,9 @@ export default function MoveMint() {
               View payment on Solscan Devnet →
             </a>
           )}
-          {txSignature && !verifiedContent && (
+          {txSignature && !verifiedContent && paymentMethod === 'usdc' && (
             <button
-              onClick={async () => {
-                setStatus('Retrying verification...');
-                try {
-                  const verified = await verifyX402Payment(txSignature);
-                  setVerifiedContent(verified);
-                  setStatus(`✅ Payment verified! Move "${moveName}" minted successfully.`);
-                } catch (err: any) {
-                  setStatus(`⚠️ Verification still pending: ${err.message || 'Try again in a moment.'}`);
-                }
-              }}
+              onClick={retryVerification}
               style={{
                 marginTop: '0.5rem',
                 padding: '0.5rem 1rem',
@@ -379,14 +507,16 @@ export default function MoveMint() {
           )}
           {verifiedContent && (
             <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#00dbde' }}>
-              x402 verified ✓
+              {paymentMethod === 'usdc' ? 'x402 verified ✓' : 'On-chain confirmed ✓'}
             </p>
           )}
         </div>
       )}
 
       <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', opacity: 0.6 }}>
-        Minting uses x402 payment protocol — $0.01 USDC on Solana Devnet. You need devnet USDC in your Phantom wallet.
+        {paymentMethod === 'usdc'
+          ? 'Minting uses x402 payment protocol — $0.01 USDC on Solana Devnet. You need devnet USDC in your Phantom wallet.'
+          : 'Minting with native SOL — 0.0001 SOL on Solana Devnet. Get free devnet SOL from a faucet.'}
       </p>
     </div>
   );

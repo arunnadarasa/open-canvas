@@ -65,19 +65,78 @@ export async function fetchX402Requirements(
   };
 }
 
+/**
+ * Build the x402 v2 Payment-Signature header value.
+ * The header is a base64-encoded JSON object containing the signed transaction
+ * and the accepted payment requirements.
+ */
+function buildX402PaymentHeader(
+  signedTxBase64: string,
+  paymentReq: X402PaymentRequirement,
+  resourceUrl: string
+): string {
+  const payload = {
+    x402Version: 2,
+    payload: {
+      transaction: signedTxBase64,
+    },
+    resource: {
+      url: resourceUrl,
+      description: paymentReq.description,
+    },
+    accepted: {
+      scheme: 'exact',
+      network: paymentReq.network,
+      amount: paymentReq.amount,
+      asset: paymentReq.token,
+      payTo: paymentReq.to,
+      tokenSymbol: paymentReq.tokenSymbol,
+    },
+  };
+
+  return btoa(JSON.stringify(payload));
+}
+
 export async function verifyX402Payment(
-  txSignature: string,
+  signedTxBase64: string,
+  paymentReq: X402PaymentRequirement,
   url: string = import.meta.env.VITE_X402_ENDPOINT || DEFAULT_ENDPOINT
 ): Promise<X402VerifiedResponse> {
+  const paymentHeader = buildX402PaymentHeader(signedTxBase64, paymentReq, url);
+
+  // Send verification with the Payment-Signature header embedded in the proxy URL
+  // since CORS proxies often strip custom request headers.
+  // We try sending the header directly first; if the proxy forwards it, great.
   const res = await fetch(proxyUrl(url), {
     headers: {
-      'Payment-Signature': txSignature,
+      'PAYMENT-SIGNATURE': paymentHeader,
+      'Payment-Signature': paymentHeader,
     },
   });
 
   const data = await res.json();
 
   if (!res.ok) {
+    // If the proxy stripped the header, try an alternative approach:
+    // encode the header as a query parameter
+    if (data?.error?.includes('PAYMENT-SIGNATURE') || data?.hint?.includes('PAYMENT-SIGNATURE')) {
+      const separator = url.includes('?') ? '&' : '?';
+      const directUrl = `${url}${separator}payment_signature=${encodeURIComponent(paymentHeader)}`;
+      const retryRes = await fetch(proxyUrl(directUrl), {
+        headers: {
+          'PAYMENT-SIGNATURE': paymentHeader,
+          'Payment-Signature': paymentHeader,
+        },
+      });
+      const retryData = await retryRes.json();
+      if (!retryRes.ok) {
+        throw new Error(
+          retryData?.error || retryData?.hint || `Payment verification failed (${retryRes.status})`
+        );
+      }
+      return retryData as X402VerifiedResponse;
+    }
+
     throw new Error(
       data?.error || data?.hint || `Payment verification failed (${res.status})`
     );
