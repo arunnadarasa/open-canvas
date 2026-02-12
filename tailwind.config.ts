@@ -101,6 +101,10 @@ export default {
           "0%": { transform: "rotate(0deg)" },
           "100%": { transform: "rotate(360deg)" },
         },
+        "bounce-down": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(8px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -112,6 +116,7 @@ export default {
         "gradient-shift": "gradient-shift 15s ease infinite",
         "slide-up-fade": "slide-up-fade 0.6s ease-out forwards",
         "spin-slow": "spin-slow 20s linear infinite",
+        "bounce-down": "bounce-down 1.5s ease-in-out infinite",
       },
     },
   },
