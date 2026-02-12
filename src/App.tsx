@@ -12,7 +12,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <PrivyProvider
-    appId={import.meta.env.VITE_PRIVY_APP_ID || 'YOUR_PRIVY_APP_ID'}
+    appId={import.meta.env.VITE_PRIVY_APP_ID || 'cmljezfwu00ob0cl489iqysdz'}
     config={{
       loginMethods: ['wallet'],
       appearance: {
