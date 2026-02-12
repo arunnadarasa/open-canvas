@@ -1,38 +1,88 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Coins, TrendingUp } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { supabase } from '@/integrations/supabase/client';
 
-const MOCK_ROYALTIES = [
-  { licensee: '@dancer42', move: 'Chest Pop', amount: 0.50, time: '2h ago' },
-  { licensee: '@bboy_king', move: 'Wave Arms', amount: 0.35, time: '8h ago' },
-  { licensee: '@flowstate', move: 'Freeze Frame', amount: 0.75, time: '1d ago' },
-  { licensee: '@popper99', move: 'Chest Pop', amount: 0.50, time: '2d ago' },
-  { licensee: '@krumplife', move: 'Wave Arms', amount: 0.35, time: '3d ago' },
-];
+interface RoyaltyEvent {
+  id: string;
+  mint_pubkey: string;
+  payer_wallet: string;
+  amount: number;
+  royalty_amount: number;
+  tx_signature: string;
+  created_at: string;
+}
 
-const TOTAL_EARNED = 4.27;
-const PENDING = 1.82;
 const PAYOUT_THRESHOLD = 10;
 
-export default function RoyaltyTracker() {
+export default function RoyaltyTracker({ walletAddress }: { walletAddress?: string }) {
+  const [events, setEvents] = useState<RoyaltyEvent[]>([]);
+  const [totalEarned, setTotalEarned] = useState(0);
   const [counter, setCounter] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRoyalties = useCallback(async () => {
+    setLoading(true);
+
+    // Get all minted moves by this wallet to find their mints
+    let mintPubkeys: string[] = [];
+    if (walletAddress) {
+      const { data: moves } = await supabase
+        .from('minted_moves')
+        .select('mint_pubkey')
+        .eq('creator_wallet', walletAddress);
+      mintPubkeys = (moves || []).map((m: any) => m.mint_pubkey).filter(Boolean);
+    }
+
+    // Get royalty events for those mints
+    let query = supabase.from('royalty_events').select('*').order('created_at', { ascending: false });
+    if (mintPubkeys.length > 0) {
+      query = query.in('mint_pubkey', mintPubkeys);
+    }
+
+    const { data, error } = await query.limit(50);
+    if (error) {
+      console.error('Error fetching royalties:', error);
+      setLoading(false);
+      return;
+    }
+
+    const royaltyEvents = (data || []) as RoyaltyEvent[];
+    setEvents(royaltyEvents);
+
+    // Calculate total (amount is in raw token units, assume 6 decimals for USDC)
+    const total = royaltyEvents.reduce((sum, e) => sum + (e.royalty_amount / 1_000_000), 0);
+    setTotalEarned(total);
+    setLoading(false);
+  }, [walletAddress]);
 
   useEffect(() => {
+    fetchRoyalties();
+  }, [fetchRoyalties]);
+
+  // Animated counter
+  useEffect(() => {
+    if (totalEarned === 0) {
+      setCounter(0);
+      return;
+    }
     const duration = 1200;
     const steps = 30;
-    const increment = TOTAL_EARNED / steps;
+    const increment = totalEarned / steps;
     let current = 0;
     const interval = setInterval(() => {
       current += increment;
-      if (current >= TOTAL_EARNED) {
-        setCounter(TOTAL_EARNED);
+      if (current >= totalEarned) {
+        setCounter(totalEarned);
         clearInterval(interval);
       } else {
         setCounter(current);
       }
     }, duration / steps);
     return () => clearInterval(interval);
-  }, []);
+  }, [totalEarned]);
+
+  const pendingAmount = totalEarned * 0.3; // Estimate pending
 
   return (
     <div className="glass-strong rounded-2xl overflow-hidden">
@@ -55,7 +105,7 @@ export default function RoyaltyTracker() {
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Total Earned</p>
           </div>
           <div className="glass rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-foreground">${PENDING.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-foreground">${pendingAmount.toFixed(2)}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Pending</p>
           </div>
         </div>
@@ -64,10 +114,10 @@ export default function RoyaltyTracker() {
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Next payout threshold</span>
-            <span className="font-mono">${TOTAL_EARNED.toFixed(2)} / ${PAYOUT_THRESHOLD}</span>
+            <span className="font-mono">${totalEarned.toFixed(2)} / ${PAYOUT_THRESHOLD}</span>
           </div>
           <Progress
-            value={(TOTAL_EARNED / PAYOUT_THRESHOLD) * 100}
+            value={(totalEarned / PAYOUT_THRESHOLD) * 100}
             className="h-2 bg-white/5"
           />
         </div>
@@ -78,18 +128,30 @@ export default function RoyaltyTracker() {
             <TrendingUp className="w-3 h-3" /> Recent Licenses
           </p>
           <div className="space-y-1.5 max-h-48 overflow-y-auto">
-            {MOCK_ROYALTIES.map((r, i) => (
+            {events.length === 0 && !loading && (
+              <p className="text-xs text-muted-foreground/50 text-center py-4">
+                No royalty events yet. They'll appear here when your moves are licensed.
+              </p>
+            )}
+            {loading && events.length === 0 && (
+              <p className="text-xs text-muted-foreground/50 text-center py-4">Loading...</p>
+            )}
+            {events.map((r) => (
               <div
-                key={i}
+                key={r.id}
                 className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors"
               >
                 <span className="text-muted-foreground truncate">
-                  <span className="text-foreground font-medium">{r.move}</span>
-                  {' '}by {r.licensee}
+                  <span className="text-foreground font-medium">{r.mint_pubkey?.slice(0, 6)}...</span>
+                  {' '}by {r.payer_wallet?.slice(0, 6)}...
                 </span>
                 <span className="shrink-0 ml-2 flex items-center gap-2">
-                  <span className="text-primary font-mono font-medium">${r.amount.toFixed(2)}</span>
-                  <span className="text-muted-foreground/50">{r.time}</span>
+                  <span className="text-primary font-mono font-medium">
+                    ${(r.royalty_amount / 1_000_000).toFixed(2)}
+                  </span>
+                  <span className="text-muted-foreground/50">
+                    {new Date(r.created_at).toLocaleDateString()}
+                  </span>
                 </span>
               </div>
             ))}

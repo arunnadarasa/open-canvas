@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface MintedMove {
   id: string;
@@ -10,70 +11,98 @@ export interface MintedMove {
   paymentMethod: 'usdc' | 'sol';
   mintedAt: string;
   verified: boolean;
-}
-
-const STORAGE_KEY = 'moveregistry_minted_moves';
-
-const MOCK_MOVES: MintedMove[] = [
-  {
-    id: 'mock-1',
-    moveName: "Asura's Chest Pop",
-    videoHash: 'QmX7b2nG...3kRt',
-    royalty: 10,
-    creator: 'H32YvKp8mNxW4qR9dTgJ5bFcZeL7uA3sPhjb',
-    txSignature: '4sGjMWtJewi7qkS8TKg...',
-    paymentMethod: 'usdc',
-    mintedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-    verified: true,
-  },
-  {
-    id: 'mock-2',
-    moveName: 'Liquid Wave Arms',
-    videoHash: 'QmR9pLqT...7xVm',
-    royalty: 7,
-    creator: '9xKmHt5rNqWz3vJ8bPcYdFgL2eR6uA4rTz',
-    txSignature: '3hRkWnXq9pLvT2mK...',
-    paymentMethod: 'sol',
-    mintedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-    verified: true,
-  },
-  {
-    id: 'mock-3',
-    moveName: 'Freeze Frame Drop',
-    videoHash: 'QmT4wKvN...2bHj',
-    royalty: 15,
-    creator: 'UjxYkM7rNpW3qT9dFgH5bLcZeR6vA8sRD5o',
-    txSignature: '5tYnXq8pLvR2mK3j...',
-    paymentMethod: 'usdc',
-    mintedAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-    verified: true,
-  },
-];
-
-function loadMoves(): MintedMove[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return MOCK_MOVES;
+  mintPubkey?: string;
+  skillPda?: string;
 }
 
 export function useMintedMoves() {
-  const [moves, setMoves] = useState<MintedMove[]>(loadMoves);
+  const [moves, setMoves] = useState<MintedMove[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(moves));
-  }, [moves]);
+  // Fetch moves from database
+  const fetchMoves = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('minted_moves')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  const addMove = useCallback((move: Omit<MintedMove, 'id' | 'mintedAt' | 'verified'>) => {
-    const newMove: MintedMove = {
-      ...move,
-      id: `mint-${Date.now()}`,
-      mintedAt: new Date().toISOString(),
-      verified: true,
-    };
-    setMoves((prev) => [newMove, ...prev]);
+    if (error) {
+      console.error('Error fetching moves:', error);
+      setLoading(false);
+      return;
+    }
+
+    const mapped: MintedMove[] = (data || []).map((row: any) => ({
+      id: row.id,
+      moveName: row.move_name,
+      videoHash: row.expression || '',
+      royalty: row.royalty_percent,
+      creator: row.creator_wallet,
+      txSignature: row.tx_signature || '',
+      paymentMethod: (row.payment_method || 'usdc') as 'usdc' | 'sol',
+      mintedAt: row.created_at,
+      verified: row.verified,
+      mintPubkey: row.mint_pubkey || undefined,
+      skillPda: row.skill_pda || undefined,
+    }));
+
+    setMoves(mapped);
+    setLoading(false);
   }, []);
 
-  return { moves, addMove };
+  useEffect(() => {
+    fetchMoves();
+  }, [fetchMoves]);
+
+  const addMove = useCallback(async (move: {
+    moveName: string;
+    videoHash: string;
+    royalty: number;
+    creator: string;
+    txSignature: string;
+    paymentMethod: 'usdc' | 'sol';
+    mintPubkey?: string;
+    skillPda?: string;
+  }) => {
+    const { data, error } = await supabase
+      .from('minted_moves')
+      .insert({
+        creator_wallet: move.creator,
+        move_name: move.moveName,
+        expression: move.videoHash,
+        royalty_percent: move.royalty,
+        mint_pubkey: move.mintPubkey || null,
+        skill_pda: move.skillPda || null,
+        tx_signature: move.txSignature,
+        payment_method: move.paymentMethod,
+        verified: move.paymentMethod === 'usdc', // x402 verified
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error inserting move:', error);
+      return;
+    }
+
+    if (data) {
+      const newMove: MintedMove = {
+        id: data.id,
+        moveName: data.move_name,
+        videoHash: data.expression || '',
+        royalty: data.royalty_percent,
+        creator: data.creator_wallet,
+        txSignature: data.tx_signature || '',
+        paymentMethod: (data.payment_method || 'usdc') as 'usdc' | 'sol',
+        mintedAt: data.created_at,
+        verified: data.verified,
+        mintPubkey: data.mint_pubkey || undefined,
+        skillPda: data.skill_pda || undefined,
+      };
+      setMoves((prev) => [newMove, ...prev]);
+    }
+  }, []);
+
+  return { moves, addMove, loading, refetch: fetchMoves };
 }
