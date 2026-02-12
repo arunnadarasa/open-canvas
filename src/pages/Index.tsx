@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Award, ShieldCheck, Coins, Sparkles, Zap } from 'lucide-react';
 import MoveMint from '../components/MoveMint';
 import CertificateGallery from '../components/CertificateGallery';
 import RoyaltyTracker from '../components/RoyaltyTracker';
+import WorldIDVerify from '../components/WorldIDVerify';
 import { useMintedMoves } from '../hooks/useMintedMoves';
 
 function FeatureCard({ 
@@ -31,7 +33,9 @@ function FeatureCard({
 
 export default function Index() {
   const { moves, addMove } = useMintedMoves();
-
+  const [worldIdVerified, setWorldIdVerified] = useState(
+    () => localStorage.getItem('worldid_verified') === 'true'
+  );
   return (
     <main className="min-h-screen bg-mesh text-foreground relative overflow-hidden">
       {/* Floating decorative elements */}
@@ -72,13 +76,19 @@ export default function Index() {
 
         {/* Mint Section */}
         <section className="glass-strong rounded-2xl p-6 sm:p-8 gradient-border mb-16 opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.6s', animationFillMode: 'forwards' }}>
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            Mint Your Move
-          </h2>
-          <MoveMint onMintSuccess={addMove} />
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              Mint Your Move
+            </h2>
+            {worldIdVerified && <WorldIDVerify isVerified={true} onVerified={() => {}} />}
+          </div>
+          {!worldIdVerified && (
+            <WorldIDVerify isVerified={false} onVerified={() => setWorldIdVerified(true)} />
+          )}
+          <MoveMint onMintSuccess={addMove} isWorldIDVerified={worldIdVerified} />
         </section>
 
         {/* Certificate Gallery + Royalty Tracker */}
