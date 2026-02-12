@@ -11,6 +11,19 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Optional auth hardening: validate shared secret
+    const heliusApiKey = Deno.env.get('HELIUS_API_KEY');
+    if (heliusApiKey) {
+      const authHeader = req.headers.get('authorization');
+      if (authHeader && authHeader !== `Bearer ${heliusApiKey}` && authHeader !== heliusApiKey) {
+        // If an auth header is present but doesn't match, reject
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const body = await req.json();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
