@@ -1,75 +1,77 @@
 
 
-## Polish MoveRegistry with WOW Factor
+## NFT Certificates & Automatic Royalties
 
-Transform the current plain, inline-styled page into a visually stunning, animated experience using Tailwind CSS and proper component architecture.
+Add a certificate gallery and royalty tracker below the mint section. Newly minted moves get added to the list in real-time. Pre-seeded with mock data so the page looks populated on first load.
 
-### Visual Redesign
+### New Components
 
-**1. Hero Section (`src/pages/Index.tsx`)**
-- Animated gradient background with floating particle/glow effects using CSS keyframes
-- Large animated title with a pulsing glow aura behind it
-- Animated subtitle with staggered fade-in
-- Floating abstract dance silhouette shapes as decorative background elements
-- "Powered by Solana + x402" badge with subtle shimmer animation
+**1. `src/components/NFTCertificate.tsx`** -- Single certificate card
+- Glassmorphism card with gradient border accent
+- Shows: move name, creator address (truncated), royalty %, mint date, tx link, payment method badge
+- Hover effect: lift + glow
+- "View Certificate" expand that shows full details (video hash, verification status)
 
-**2. Feature Cards**
-- Glassmorphism cards with backdrop-blur and subtle border glow
-- Icon for each feature (lucide-react icons: Award, ShieldCheck, Coins)
-- Hover effect: card lifts up, border glows brighter, icon scales
-- Staggered entrance animation (fade-in + slide-up with delay)
+**2. `src/components/CertificateGallery.tsx`** -- Gallery section
+- Grid of NFTCertificate cards (responsive: 1 col mobile, 2 col tablet, 3 col desktop)
+- Header with count badge ("12 Moves Registered")
+- Uses shared state from a context/store
 
-**3. Mint Section (`src/components/MoveMint.tsx`)**
-- Glassmorphism card container with gradient border
-- Styled inputs using Tailwind (dark glass background, focus ring with gradient)
-- Custom range slider with gradient track
-- Payment method toggle as polished pill buttons with smooth transition
-- Animated mint button with gradient shimmer sweep on hover
-- Pulsing loading state during transaction with animated dots
-- Success state: confetti-like burst animation, glowing green checkmark, prominent Solscan link as a styled card
+**3. `src/components/RoyaltyTracker.tsx`** -- Royalty dashboard widget
+- Shows mock royalty earnings with animated counter
+- Mini table: recent royalty payments (mock data: "Chest Pop licensed by @dancer42 -- $0.50 USDC")
+- Total earned, pending payouts
+- Gradient progress bar for "next payout threshold"
 
-**4. Global Enhancements**
-- Replace ALL inline styles with Tailwind classes
-- Add custom CSS animations to `src/index.css`: shimmer, float, glow-pulse, gradient-shift
-- Animated gradient mesh background that slowly shifts colors
-- Smooth scroll behavior
-- Footer with subtle separator line and hover effects on links
+### State Management
 
-### New Custom Animations (added to `tailwind.config.ts` and `src/index.css`)
+**4. `src/hooks/useMintedMoves.ts`** -- Custom hook
+- Stores minted moves in React state + localStorage for persistence
+- Interface: `MintedMove { id, moveName, videoHash, royalty, creator, txSignature, paymentMethod, mintedAt, verified }`
+- Pre-seeded with 3 mock entries on first load
+- `addMove()` function called after successful mint in MoveMint.tsx
 
-```text
-Keyframes:
-- shimmer: background-position sweep for button hover
-- float: gentle up-down bobbing for decorative elements  
-- glow-pulse: opacity pulse for glow effects
-- gradient-shift: slow background gradient rotation
-- slide-up-fade: entrance animation for staggered elements
-```
+### Integration Changes
 
-### Files to Modify
+**5. `src/components/MoveMint.tsx`** -- Wire up
+- Import `useMintedMoves` hook
+- After successful mint (both SOL and USDC flows), call `addMove()` with the mint data
+- Pass the hook down via props or use it in Index.tsx
 
-| File | Changes |
-|------|---------|
-| `src/index.css` | Add custom animations, gradient mesh background, glass utilities |
-| `tailwind.config.ts` | Add custom keyframes and animation utilities |
-| `src/pages/Index.tsx` | Complete redesign with Tailwind, animated hero, glass cards, decorative elements |
-| `src/components/MoveMint.tsx` | Replace inline styles with Tailwind, add animations, polish all states |
+**6. `src/pages/Index.tsx`** -- Layout
+- Add CertificateGallery section between the mint card and feature cards
+- Add RoyaltyTracker as a sidebar-style widget or inline section
+- Both use the shared `useMintedMoves` hook
 
-### Design System
+### Mock Data (3 pre-seeded entries)
 
-- Primary gradient: `#00dbde` to `#fc00ff` (cyan to magenta)
-- Solana accent: `#9945FF` to `#14F195`
-- Glass: `bg-white/5 backdrop-blur-xl border border-white/10`
-- Dark background: animated gradient mesh using CSS
-- Text: white with varying opacity levels
-- All rounded corners: `rounded-2xl` for cards, `rounded-xl` for inputs
+| Move Name | Creator | Royalty | Payment | Date |
+|-----------|---------|---------|---------|------|
+| Asura's Chest Pop | H32Y...Phjb | 10% | USDC | 2 days ago |
+| Liquid Wave Arms | 9xKm...4rTz | 7% | SOL | 5 days ago |
+| Freeze Frame Drop | UjxY...RD5o | 15% | USDC | 1 week ago |
 
-### Key WOW Moments
+### Mock Royalty Data
 
-1. Page load: Background mesh animates, title fades in with glow, subtitle staggers in
-2. Feature cards: Staggered entrance with hover lift + glow
-3. Mint form: Inputs glow on focus, payment toggle has smooth pill transition
-4. Mint button: Gradient shimmer sweeps across on hover
-5. Success: Green glow burst, Solscan link appears with slide-in animation
-6. Scroll: Elements animate in as they enter viewport (CSS-only with animation-delay)
+- Total earned: $4.27 USDC
+- 5 recent license events with timestamps, licensee addresses, and amounts
+- Animated counter on page load
+
+### Visual Design
+
+- Certificate cards: glass background, small gradient accent stripe on left edge, Award icon
+- Royalty tracker: glass card with gradient stats row at top, mini transaction list below
+- All animations consistent with existing shimmer/slide-up-fade system
+- New entries animate in with a highlight pulse when freshly minted
+
+### Files to Create/Modify
+
+| File | Action |
+|------|--------|
+| `src/hooks/useMintedMoves.ts` | Create -- shared state + localStorage |
+| `src/components/NFTCertificate.tsx` | Create -- single cert card |
+| `src/components/CertificateGallery.tsx` | Create -- gallery grid |
+| `src/components/RoyaltyTracker.tsx` | Create -- royalty dashboard |
+| `src/components/MoveMint.tsx` | Modify -- call addMove on success |
+| `src/pages/Index.tsx` | Modify -- add gallery + royalty sections |
 
