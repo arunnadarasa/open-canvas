@@ -1,67 +1,54 @@
 
 
-## World ID Verification Gate
+## Animated Video Hero Section
 
-Add World ID proof-of-personhood verification as a required step before users can connect their wallet and mint. The app ID is `app_0abc6adff26c25102bd04dc58f5a66a8` with action `moveregistry`.
+Replace the current text-only hero with a full-viewport cinematic video hero using the uploaded dance video as a background. The text content animates in on top of the video with a dark overlay for readability.
 
-### Flow
+### Layout
 
-```text
-User lands on page
-  -> Sees "Verify with World ID" button (wallet connect is hidden)
-  -> Completes World ID verification in IDKit widget
-  -> Proof is sent to backend edge function for cloud verification
-  -> On success, verification state is stored in localStorage
-  -> Wallet connect button becomes available
-  -> User can now mint
+The hero will be a full-screen (100vh) section at the top of the page with the video playing on loop, muted, behind a gradient overlay. All existing hero text stays but gets larger, more dramatic treatment. A scroll-down indicator at the bottom invites users to continue.
+
+### Changes
+
+**1. Copy video to project**
+- Copy `user-uploads://Robots_Humans_Avatars_Dance_Together.mp4` to `public/videos/hero-dance.mp4`
+- Using `public/` because video elements use direct URL references, not ES6 imports
+
+**2. `src/pages/Index.tsx`** -- Replace hero `<header>` section (lines 51-75)
+
+New hero structure:
+- Full-viewport container (`h-screen`) with `position: relative`
+- `<video>` element: autoPlay, muted, loop, playsInline, object-cover, absolute fill
+- Dark gradient overlay (`bg-gradient-to-b from-black/60 via-black/40 to-background`) for text contrast
+- Existing title, subtitle, badge, and credit text centered on top with the same staggered slide-up-fade animations
+- Animated scroll indicator (chevron bouncing) at the bottom of the viewport
+- The rest of the page content follows naturally below
+
+**3. `src/index.css`** -- Add scroll indicator animation
+
+Add a `bounce-down` keyframe for the scroll chevron:
+```css
+@keyframes bounce-down {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
 ```
 
-### Files to Create
+**4. `tailwind.config.ts`** -- Register the bounce-down animation
 
-**1. `src/components/WorldIDVerify.tsx`**
-- Uses `IDKitWidget` from `@worldcoin/idkit`
-- App ID: `app_0abc6adff26c25102bd04dc58f5a66a8`, action: `moveregistry`
-- `handleVerify` callback sends proof to the edge function
-- On success, calls a callback to unlock wallet connection
-- Shows verification badge (green shield) when verified
-- Glassmorphism styling consistent with existing design
+### Visual Design
 
-**2. `supabase/functions/verify-worldid/index.ts`**
-- Receives proof payload (merkle_root, nullifier_hash, proof, verification_level)
-- Calls `https://developer.worldcoin.org/api/v2/verify/app_0abc6adff26c25102bd04dc58f5a66a8`
-- Returns success/failure to frontend
-- No database table needed -- verification state lives in localStorage (no auth system in this app)
-- CORS headers included
+- Video fills the entire viewport, object-fit cover, no controls
+- Gradient overlay transitions from dark at top to the existing `--background` color at bottom for seamless blending
+- Text uses the same `gradient-text` styling but with slightly larger sizing
+- On mobile, video still plays (playsInline ensures iOS compatibility)
+- The rest of the page (mint section, gallery, features, footer) remains unchanged below the hero
 
-### Files to Modify
+### Files to Create/Modify
 
-**3. `src/components/MoveMint.tsx`**
-- Add `isWorldIDVerified` prop
-- When not verified, show the WorldIDVerify component instead of the wallet connect button
-- When verified, show a small "Human Verified" badge next to the wallet section
-- Gate the entire wallet connect flow behind verification
-
-**4. `src/pages/Index.tsx`**
-- Add `worldIdVerified` state (persisted in localStorage)
-- Pass it down to MoveMint
-
-**5. `supabase/config.toml`**
-- Add `[functions.verify-worldid]` with `verify_jwt = false` (public endpoint, no auth)
-
-**6. `package.json`**
-- Add `@worldcoin/idkit` dependency
-
-### Edge Function Details
-
-The verify-worldid function will:
-- Accept POST with `{ merkle_root, nullifier_hash, proof, verification_level }`
-- Forward to World ID cloud verification API
-- Return `{ success: true }` or `{ success: false, error: "..." }`
-- No secrets needed -- the app ID is public and hardcoded in the verification URL
-
-### UI Design
-
-- Before verification: Large "Verify You're Human" card with World ID button, replaces the wallet connect area
-- After verification: Small green "Verified Human" badge, wallet connect becomes available
-- The verification persists in localStorage so users don't re-verify on page refresh
-
+| File | Action |
+|------|--------|
+| `public/videos/hero-dance.mp4` | Create -- copy uploaded video |
+| `src/pages/Index.tsx` | Modify -- replace hero header with video hero |
+| `src/index.css` | Modify -- add bounce-down keyframe |
+| `tailwind.config.ts` | Modify -- register bounce-down animation |
