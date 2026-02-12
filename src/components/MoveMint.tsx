@@ -7,7 +7,7 @@ import {
   createAssociatedTokenAccountInstruction,
   getAccount,
 } from '@solana/spl-token';
-import { fetchX402Requirements, verifyX402Payment, type X402PaymentRequirement } from '@/lib/x402';
+import { fetchX402Requirements, verifyX402Payment, buildX402PaymentHeader, type X402PaymentRequirement } from '@/lib/x402';
 
 const connection = new Connection(import.meta.env.VITE_SOLANA_RPC || 'https://api.devnet.solana.com');
 
@@ -212,7 +212,8 @@ export default function MoveMint() {
       setVerifiedContent(verified);
       setStatus(`✅ Payment verified! Move "${moveName}" minted successfully.`);
     } catch (err: any) {
-      setStatus(`⚠️ Verification still pending: ${err.message || 'Try again in a moment.'}`);
+      const errMsg = typeof err === 'object' ? (err.message || JSON.stringify(err)) : String(err);
+      setStatus(`⚠️ Verification still pending: ${errMsg || 'Try again in a moment.'}`);
     }
   };
 
@@ -511,6 +512,50 @@ export default function MoveMint() {
             </p>
           )}
         </div>
+      )}
+
+      {/* Debug Panel — visible after a payment attempt */}
+      {signedTxBase64Ref.current && paymentReqRef.current && (
+        <details style={{
+          marginTop: '1rem',
+          borderRadius: 8,
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}>
+          <summary style={{
+            padding: '0.75rem',
+            cursor: 'pointer',
+            fontSize: '0.8rem',
+            opacity: 0.6,
+            fontFamily: 'monospace',
+          }}>
+            🔍 Payment Header Debug
+          </summary>
+          <div style={{
+            padding: '0.75rem',
+            fontSize: '0.75rem',
+            fontFamily: 'monospace',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            maxHeight: '300px',
+            overflow: 'auto',
+            color: '#aaa',
+          }}>
+            <p style={{ margin: '0 0 0.5rem', fontWeight: 600, color: '#00dbde' }}>Decoded PAYMENT-SIGNATURE payload:</p>
+            {(() => {
+              try {
+                const url = import.meta.env.VITE_X402_ENDPOINT || 'https://x402.payai.network/api/solana-devnet/paid-content';
+                const header = buildX402PaymentHeader(signedTxBase64Ref.current!, paymentReqRef.current!, url);
+                const decoded = JSON.parse(atob(header));
+                return <pre style={{ margin: 0 }}>{JSON.stringify(decoded, null, 2)}</pre>;
+              } catch {
+                return <span>Could not decode header</span>;
+              }
+            })()}
+            <p style={{ margin: '1rem 0 0.5rem', fontWeight: 600, color: '#9945FF' }}>Raw 402 requirements:</p>
+            <pre style={{ margin: 0 }}>{JSON.stringify(paymentReqRef.current, null, 2)}</pre>
+          </div>
+        </details>
       )}
 
       <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', opacity: 0.6 }}>
