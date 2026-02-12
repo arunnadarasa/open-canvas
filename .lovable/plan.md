@@ -1,30 +1,37 @@
 
 
-## Fix: "Wallet not available (no Solana wallet connected)"
+## Fix: "No wallet found for address" - Sign directly with Phantom
 
 ### Problem
-The user is authenticated via Phantom Solana (address `UjxYKRD5ogZLPSASPPTDZt48gYLJgMG2Cw6Gm4fePa8`), but the `useWallets()` hook doesn't return a matching Solana wallet object. The `getWallet()` filtering logic fails, blocking minting.
-
-### Root Cause
-Privy's `useWallets()` may not populate for externally-connected Solana wallets the same way as embedded wallets. However, the authenticated `user` object already contains the wallet address at `user.wallet.address`.
+Privy's `useSignTransaction` hook internally maintains a wallet registry. For externally connected Solana wallets (like Phantom), the wallet object isn't always registered there, causing "No wallet found for address" even though authentication succeeds.
 
 ### Solution
-Simplify the wallet resolution in `MoveMint.tsx`:
+Bypass Privy's `signTransaction` hook entirely and sign transactions directly using Phantom's browser provider (`window.solana`). This is reliable because:
+- The user is already authenticated with Phantom
+- Phantom's provider is available in the browser
+- We already verify Phantom is installed during connection
 
-1. **Remove the `getWallet()` filtering logic** -- it's fragile and unnecessary
-2. **Get the wallet address directly from `user.wallet.address`** -- Privy already provides this on authentication
-3. **Use `signTransaction` with the address string** -- Privy's `signTransaction` only needs the address, not a wallet object
-4. **Remove the `useWallets` and `useConnectWallet` imports** -- no longer needed
+### Changes in `src/components/MoveMint.tsx`
 
-### Technical Details
+1. **Remove** the `useSignTransaction` import and hook
+2. **Replace** the signing logic in `mintMove`:
+   - Instead of calling Privy's `signTransaction({ transaction, connection, address })`, call `window.solana.signTransaction(transaction)` directly
+   - Then serialize and send the signed transaction as before
+3. **Add** a check that `window.solana` (Phantom provider) is available before signing
+4. **Update** the `useCallback` dependency array to remove `signTransaction`
 
-In `src/components/MoveMint.tsx`:
+### Technical Detail
 
-- Remove `useWallets` and `useConnectWallet` imports and hooks
-- Remove the `getWallet` callback and related `connectedWallet`/`connectedAddress`/`isEthereumWallet` variables
-- In `mintMove`, get address from `user?.wallet?.address` instead of the wallet object
-- Keep the Ethereum address check (`startsWith('0x')`) as a safety guard
-- Keep all existing `signTransaction` logic (it already accepts `address` as a string)
+The signing block changes from:
+```
+const signedTx = await signTransaction({ transaction, connection, address: walletAddress })
+```
+to:
+```
+const phantom = (window as any).solana
+if (!phantom?.signTransaction) throw new Error('Phantom wallet not available for signing')
+const signedTx = await phantom.signTransaction(transaction)
+```
 
-This is a minimal, targeted fix -- only the wallet resolution logic changes. The transaction building, signing, and UI remain the same.
+Everything else (transaction building, serialization, sending, UI) stays the same.
 
