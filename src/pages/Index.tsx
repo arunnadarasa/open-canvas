@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown } from 'lucide-react';
+import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink } from 'lucide-react';
 import { usePrivy } from '@privy-io/react-auth';
 import MoveMint from '../components/MoveMint';
 import CertificateGallery from '../components/CertificateGallery';
@@ -142,6 +142,49 @@ export default function Index() {
             description="When AI agents, metaverse platforms, or robot manufacturers license your skill, royalties auto-distribute to your treasury on-chain."
             delay="1.0s"
           />
+        </section>
+
+        {/* Tech Stack */}
+        <section className="mb-16">
+          <div className="text-center mb-8 opacity-0 animate-slide-up-fade" style={{ animationDelay: '1.1s', animationFillMode: 'forwards' }}>
+            <div className="inline-flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] flex items-center justify-center">
+                <Layers className="w-4 h-4 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold gradient-text">Built With</h2>
+            </div>
+            <p className="text-muted-foreground text-sm">The technologies powering MoveRegistry</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { icon: Cpu, name: 'Solana', desc: 'High-speed blockchain for NFT minting', url: 'https://solana.com' },
+              { icon: Component, name: 'Metaplex', desc: 'On-chain NFT metadata standard', url: 'https://developers.metaplex.com' },
+              { icon: Database, name: 'Helius', desc: 'Real-time webhook & RPC infrastructure', url: 'https://helius.dev' },
+              { icon: Wallet, name: 'Privy', desc: 'Wallet authentication & onboarding', url: 'https://privy.io' },
+              { icon: Globe, name: 'World ID', desc: 'Proof-of-personhood verification', url: 'https://worldcoin.org/world-id' },
+              { icon: Shield, name: 'x402', desc: 'Micropayment-gated skill verification', url: 'https://www.x402.org' },
+              { icon: Zap, name: 'Lovable Cloud', desc: 'Backend functions & data storage', url: 'https://lovable.dev' },
+              { icon: Component, name: 'shadcn/ui', desc: 'Accessible UI component library', url: 'https://ui.shadcn.com' },
+            ].map((tech, i) => (
+              <a
+                key={tech.name}
+                href={tech.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group glass-strong rounded-2xl p-5 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_8px_40px_-12px_hsl(var(--primary)/0.3)] transition-all duration-500 opacity-0 animate-slide-up-fade flex flex-col"
+                style={{ animationDelay: `${1.2 + i * 0.08}s`, animationFillMode: 'forwards' }}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <tech.icon className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="font-semibold text-sm gradient-text">{tech.name}</span>
+                  <ExternalLink className="w-3 h-3 text-muted-foreground/40 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <p className="text-muted-foreground text-xs leading-relaxed">{tech.desc}</p>
+              </a>
+            ))}
+          </div>
         </section>
 
         {/* Footer */}
