@@ -1,61 +1,75 @@
 
 
-## Fix Missing Solscan Link After x402 Payment
+## Polish MoveRegistry with WOW Factor
 
-### Problem
+Transform the current plain, inline-styled page into a visually stunning, animated experience using Tailwind CSS and proper component architecture.
 
-The facilitator's response uses field names `transaction`, `transactionId`, and `signature` for the tx hash -- **not** `tx_hash`. The current code only checks `verified.tx_hash`, which is always `undefined`, so the Solscan link never renders.
+### Visual Redesign
 
-Actual facilitator response (from logs):
+**1. Hero Section (`src/pages/Index.tsx`)**
+- Animated gradient background with floating particle/glow effects using CSS keyframes
+- Large animated title with a pulsing glow aura behind it
+- Animated subtitle with staggered fade-in
+- Floating abstract dance silhouette shapes as decorative background elements
+- "Powered by Solana + x402" badge with subtle shimmer animation
+
+**2. Feature Cards**
+- Glassmorphism cards with backdrop-blur and subtle border glow
+- Icon for each feature (lucide-react icons: Award, ShieldCheck, Coins)
+- Hover effect: card lifts up, border glows brighter, icon scales
+- Staggered entrance animation (fade-in + slide-up with delay)
+
+**3. Mint Section (`src/components/MoveMint.tsx`)**
+- Glassmorphism card container with gradient border
+- Styled inputs using Tailwind (dark glass background, focus ring with gradient)
+- Custom range slider with gradient track
+- Payment method toggle as polished pill buttons with smooth transition
+- Animated mint button with gradient shimmer sweep on hover
+- Pulsing loading state during transaction with animated dots
+- Success state: confetti-like burst animation, glowing green checkmark, prominent Solscan link as a styled card
+
+**4. Global Enhancements**
+- Replace ALL inline styles with Tailwind classes
+- Add custom CSS animations to `src/index.css`: shimmer, float, glow-pulse, gradient-shift
+- Animated gradient mesh background that slowly shifts colors
+- Smooth scroll behavior
+- Footer with subtle separator line and hover effects on links
+
+### New Custom Animations (added to `tailwind.config.ts` and `src/index.css`)
+
 ```text
-{
-  "success": true,
-  "transaction": "4cYzADoLz...",
-  "transactionId": "4cYzADoLz...",
-  "signature": "4cYzADoLz...",
-  "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-  "payer": "UjxYKRD5og...",
-  "premiumContent": "Have some rizz!",
-  ...
-}
+Keyframes:
+- shimmer: background-position sweep for button hover
+- float: gentle up-down bobbing for decorative elements  
+- glow-pulse: opacity pulse for glow effects
+- gradient-shift: slow background gradient rotation
+- slide-up-fade: entrance animation for staggered elements
 ```
 
-### Changes
+### Files to Modify
 
-**1. `src/lib/x402.ts` -- Update `X402VerifiedResponse` and `verifyX402Payment`**
+| File | Changes |
+|------|---------|
+| `src/index.css` | Add custom animations, gradient mesh background, glass utilities |
+| `tailwind.config.ts` | Add custom keyframes and animation utilities |
+| `src/pages/Index.tsx` | Complete redesign with Tailwind, animated hero, glass cards, decorative elements |
+| `src/components/MoveMint.tsx` | Replace inline styles with Tailwind, add animations, polish all states |
 
-- Expand the interface to include all possible tx hash field names (`transaction`, `transactionId`, `signature`)
-- In `verifyX402Payment`, normalize the tx hash by checking all variants and returning a consistent `tx_hash` field
-- Also capture `premiumContent` / other content fields
+### Design System
 
-**2. `src/components/MoveMint.tsx` -- Fix tx hash extraction**
+- Primary gradient: `#00dbde` to `#fc00ff` (cyan to magenta)
+- Solana accent: `#9945FF` to `#14F195`
+- Glass: `bg-white/5 backdrop-blur-xl border border-white/10`
+- Dark background: animated gradient mesh using CSS
+- Text: white with varying opacity levels
+- All rounded corners: `rounded-2xl` for cards, `rounded-xl` for inputs
 
-- Update the code at line 209 to also check `verified.transaction`, `verified.transactionId`, and `verified.signature` as fallbacks for the Solscan link
+### Key WOW Moments
 
-### Technical Details
-
-Updated interface:
-```text
-export interface X402VerifiedResponse {
-  tx_hash: string;        // normalized by our code
-  solscan: string;
-  message: string;
-  content: Record<string, unknown>;
-  // raw fields from facilitator
-  transaction?: string;
-  transactionId?: string;
-  signature?: string;
-  premiumContent?: string;
-}
-```
-
-In `verifyX402Payment`, after parsing:
-```text
-const txHash = data.tx_hash || data.transaction || data.transactionId || data.signature;
-return {
-  ...data,
-  tx_hash: txHash,
-  solscan: `https://solscan.io/tx/${txHash}?cluster=devnet`,
-} as X402VerifiedResponse;
-```
+1. Page load: Background mesh animates, title fades in with glow, subtitle staggers in
+2. Feature cards: Staggered entrance with hover lift + glow
+3. Mint form: Inputs glow on focus, payment toggle has smooth pill transition
+4. Mint button: Gradient shimmer sweeps across on hover
+5. Success: Green glow burst, Solscan link appears with slide-in animation
+6. Scroll: Elements animate in as they enter viewport (CSS-only with animation-delay)
 
