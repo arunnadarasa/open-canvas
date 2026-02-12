@@ -19,16 +19,33 @@ export interface X402VerifiedResponse {
 }
 
 const DEFAULT_ENDPOINT = 'https://x402.payai.network/api/solana-devnet/paid-content';
-const CORS_PROXY = 'https://corsproxy.io/?key=83d86fb9&url=';
 
-function proxyUrl(url: string): string {
-  return `${CORS_PROXY}${encodeURIComponent(url)}`;
+// Use the Supabase edge function as proxy to preserve custom headers
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+async function proxyFetch(url: string, paymentSignature?: string): Promise<Response> {
+  const proxyUrl = `${SUPABASE_URL}/functions/v1/x402-proxy`;
+
+  const res = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify({
+      url,
+      ...(paymentSignature ? { paymentSignature } : {}),
+    }),
+  });
+
+  return res;
 }
 
 export async function fetchX402Requirements(
   url: string = import.meta.env.VITE_X402_ENDPOINT || DEFAULT_ENDPOINT
 ): Promise<X402PaymentRequirement> {
-  const res = await fetch(proxyUrl(url));
+  const res = await proxyFetch(url);
   const data = await res.json();
 
   if (!data?.x402 && res.status !== 402) {
@@ -104,6 +121,10 @@ export function buildX402PaymentHeader(
   return btoa(JSON.stringify(payload));
 }
 
+/**
+ * Send signed transaction to x402 facilitator via edge function proxy.
+ * The facilitator co-signs and broadcasts — we do NOT broadcast locally.
+ */
 export async function verifyX402Payment(
   signedTxBase64: string,
   paymentReq: X402PaymentRequirement,
@@ -111,36 +132,12 @@ export async function verifyX402Payment(
 ): Promise<X402VerifiedResponse> {
   const paymentHeader = buildX402PaymentHeader(signedTxBase64, paymentReq, url);
 
-  const res = await fetch(proxyUrl(url), {
-    headers: {
-      'PAYMENT-SIGNATURE': paymentHeader,
-      'Payment-Signature': paymentHeader,
-    },
-  });
-
+  const res = await proxyFetch(url, paymentHeader);
   const data = await res.json();
 
   if (!res.ok) {
-    if (data?.error?.includes('PAYMENT-SIGNATURE') || data?.hint?.includes('PAYMENT-SIGNATURE')) {
-      const separator = url.includes('?') ? '&' : '?';
-      const directUrl = `${url}${separator}payment_signature=${encodeURIComponent(paymentHeader)}`;
-      const retryRes = await fetch(proxyUrl(directUrl), {
-        headers: {
-          'PAYMENT-SIGNATURE': paymentHeader,
-          'Payment-Signature': paymentHeader,
-        },
-      });
-      const retryData = await retryRes.json();
-      if (!retryRes.ok) {
-        throw new Error(
-          retryData?.error || retryData?.hint || `Payment verification failed (${retryRes.status})`
-        );
-      }
-      return retryData as X402VerifiedResponse;
-    }
-
     throw new Error(
-      data?.error || data?.hint || `Payment verification failed (${res.status})`
+      data?.error || data?.hint || `Payment verification failed (${res.status}): ${JSON.stringify(data).slice(0, 300)}`
     );
   }
 
