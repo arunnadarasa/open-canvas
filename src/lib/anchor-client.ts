@@ -6,6 +6,8 @@ import {
   SystemProgram,
   Keypair,
 } from '@solana/web3.js';
+
+const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { PROGRAM_ID, USDC_MINT, getTreasuryPDA, getSkillDataPDA } from './anchor-idl';
 import { Buffer } from 'buffer';
@@ -107,4 +109,15 @@ export async function buildVerifySkillTransaction(
   transaction.feePayer = verifier;
 
   return transaction;
+}
+
+/**
+ * Build a Memo instruction for embedding proof-of-payment on-chain.
+ */
+export function buildMemoInstruction(message: string, signer: PublicKey): TransactionInstruction {
+  return new TransactionInstruction({
+    keys: [{ pubkey: signer, isSigner: true, isWritable: false }],
+    programId: MEMO_PROGRAM_ID,
+    data: Buffer.from(message, 'utf-8'),
+  });
 }

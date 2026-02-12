@@ -8,7 +8,8 @@ import {
   getAccount,
 } from '@solana/spl-token';
 import { fetchX402Requirements, verifyX402Payment, buildX402PaymentHeader, type X402PaymentRequirement } from '@/lib/x402';
-import { buildMintSkillTransaction, buildVerifySkillTransaction } from '@/lib/anchor-client';
+import { buildMintSkillTransaction, buildVerifySkillTransaction, buildMemoInstruction } from '@/lib/anchor-client';
+import { isDSL, validateDSL, DSL_HINT } from '@/lib/skill-dsl';
 import { fetchMetadataUri, buildCreateMetadataTransaction } from '@/lib/metaplex';
 import { ExternalLink, RefreshCw, AlertTriangle, CheckCircle2, Loader2, Wallet } from 'lucide-react';
 
@@ -17,7 +18,7 @@ const SOL_AMOUNT_LAMPORTS = 100_000;
 
 type PaymentMethod = 'usdc' | 'sol';
 
-export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol'; mintPubkey?: string; skillPda?: string; metadataUri?: string }) => void; isWorldIDVerified?: boolean; onRequestVerify?: () => void }) {
+export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol'; mintPubkey?: string; skillPda?: string; metadataUri?: string; skillJsonUri?: string; skillMdUri?: string }) => void; isWorldIDVerified?: boolean; onRequestVerify?: () => void }) {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const [moveName, setMoveName] = useState('');
   const [videoHash, setVideoHash] = useState('');
@@ -42,6 +43,12 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
 
     if (!moveName.trim() || !videoHash.trim()) {
       setStatus('Please fill in all fields.');
+      return;
+    }
+
+    const dslError = validateDSL(videoHash);
+    if (dslError) {
+      setStatus(`❌ DSL Error: ${dslError}`);
       return;
     }
 
@@ -97,14 +104,22 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
       // Step 2: Create Metaplex NFT metadata
       let metadataUri = '';
       try {
-        setStatus('Generating NFT metadata...');
-        metadataUri = await fetchMetadataUri({
+        setStatus('Generating NFT metadata & OpenClaw skill package...');
+        const metaResult = await fetchMetadataUri({
           moveName,
           description: `Dance move NFT: ${moveName}`,
           videoHash,
           creator: fromPubkey.toBase58(),
           royaltyPercent: royalty,
+          mintPubkey: mintKeypair.publicKey.toBase58(),
         });
+        metadataUri = metaResult.uri;
+        const skillJsonUri = metaResult.skillJsonUri;
+        const skillMdUri = metaResult.skillMdUri;
+
+        // Store skill URIs for later use
+        (window as any).__lastSkillJsonUri = skillJsonUri;
+        (window as any).__lastSkillMdUri = skillMdUri;
 
         setStatus('Building Metaplex metadata transaction...');
         const web3Tx = await buildCreateMetadataTransaction({
@@ -168,7 +183,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
 
     setVerifiedContent({ message: 'SOL payment confirmed on-chain' });
     setStatus(`✅ Move "${moveName}" minted and paid! SOL tx: ${signature.slice(0, 8)}...`);
-    onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'sol', mintPubkey, skillPda, metadataUri });
+    onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'sol', mintPubkey, skillPda, metadataUri, skillJsonUri: (window as any).__lastSkillJsonUri, skillMdUri: (window as any).__lastSkillMdUri });
   };
 
   const handleUSDCPayment = async (fromPubkey: PublicKey, phantom: any, skillPDA: PublicKey, mintPubkey: string, skillPda: string, mintSignature: string, metadataUri?: string) => {
@@ -225,21 +240,25 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
       setVerifiedContent(verified);
       if (verified.tx_hash) setTxSignature(verified.tx_hash);
 
-      // After x402 verification, call verify_skill on-chain
-      setStatus('Verifying move on-chain...');
+      // After x402 verification, call verify_skill + embed memo proof on-chain
+      setStatus('Verifying move on-chain with payment proof...');
       try {
         const verifyTx = await buildVerifySkillTransaction(connection, fromPubkey, skillPDA);
+        // Embed x402 proof-of-payment as a Memo instruction
+        if (verified.tx_hash) {
+          verifyTx.add(buildMemoInstruction(`x402:${verified.tx_hash}`, fromPubkey));
+        }
         const signedVerifyTx = await phantom.signTransaction(verifyTx);
         const serializedVerifyTx = signedVerifyTx.serialize();
         const verifySig = await connection.sendRawTransaction(serializedVerifyTx);
         await connection.confirmTransaction(verifySig);
-        setStatus(`✅ Move "${moveName}" minted and verified on-chain!`);
+        setStatus(`✅ Move "${moveName}" minted and verified on-chain with payment proof!`);
       } catch (verifyErr: any) {
         console.warn('On-chain verify failed (may already be verified):', verifyErr);
         setStatus(`✅ Move "${moveName}" minted! x402 verified. On-chain verify: ${verifyErr.message?.slice(0, 60)}`);
       }
 
-      onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'usdc', mintPubkey, skillPda, metadataUri });
+      onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'usdc', mintPubkey, skillPda, metadataUri, skillJsonUri: (window as any).__lastSkillJsonUri, skillMdUri: (window as any).__lastSkillMdUri });
     } catch (verifyErr: any) {
       const errMsg = typeof verifyErr === 'object' ? (verifyErr.message || JSON.stringify(verifyErr)) : String(verifyErr);
       setStatus(`⚠️ Facilitator verification failed: ${errMsg}`);
@@ -371,17 +390,27 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
             />
           </div>
 
-          {/* Video Hash */}
+          {/* Expression / DSL */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-foreground/90">Video Hash or Expression</label>
-            <input
-              type="text"
+            <label className="block text-sm font-medium text-foreground/90">Expression or Choreography DSL</label>
+            <textarea
               value={videoHash}
               onChange={(e) => setVideoHash(e.target.value)}
-              placeholder="IPFS CID or text description of the move"
+              placeholder={`IPFS CID, text description, or conditional DSL:\ndance:chest_pop if sentiment > 0.8\ndance:wave if proximity < 2.0\ndance:idle otherwise`}
               required
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all font-mono text-sm resize-y"
             />
+            {isDSL(videoHash) && (
+              <p className="text-xs text-primary/80">✓ Conditional DSL detected — conditions will be embedded in skill.json</p>
+            )}
+            {validateDSL(videoHash) && (
+              <p className="text-xs text-destructive">{validateDSL(videoHash)}</p>
+            )}
+            <details className="text-xs text-muted-foreground/50">
+              <summary className="cursor-pointer hover:text-muted-foreground/80 transition-colors">DSL syntax help</summary>
+              <pre className="mt-1 whitespace-pre-wrap">{DSL_HINT}</pre>
+            </details>
           </div>
 
           {/* Royalty Slider */}
