@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { useSignTransaction } from '@privy-io/react-auth/solana';
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { Buffer } from 'buffer';
 
@@ -11,7 +10,6 @@ const PROGRAM_ID = new PublicKey(import.meta.env.VITE_PROGRAM_ID || 'Dp2JcVDt4se
 
 export default function MoveMint() {
   const { ready, authenticated, login, logout, user } = usePrivy()
-  const { signTransaction } = useSignTransaction()
   const [moveName, setMoveName] = useState('')
   const [videoHash, setVideoHash] = useState('')
   const [royalty, setRoyalty] = useState(5)
@@ -74,12 +72,10 @@ export default function MoveMint() {
       transaction.feePayer = fromPubkey
 
       setStatus('Please sign the transaction in your wallet...')
-      // Privy's signTransaction expects connection and address, not wallet object
-      const signedTx = await signTransaction({
-        transaction,
-        connection,
-        address: walletAddress,
-      })
+      // Sign directly with Phantom's browser provider (bypasses Privy's wallet registry)
+      const phantom = (window as any).solana
+      if (!phantom?.signTransaction) throw new Error('Phantom wallet not available for signing. Please ensure Phantom is installed and unlocked.')
+      const signedTx = await phantom.signTransaction(transaction)
       // Serialize the signed transaction to send it
       const serializedTx = signedTx.serialize()
       const signature = await connection.sendRawTransaction(serializedTx)
@@ -91,7 +87,7 @@ export default function MoveMint() {
       console.error('Mint error:', error)
       setStatus(`❌ Error: ${error.message || 'Unknown error'}`)
     }
-  }, [authenticated, moveName, videoHash, royalty, user, signTransaction])
+  }, [authenticated, moveName, videoHash, royalty, user])
 
   return (
     <div>
