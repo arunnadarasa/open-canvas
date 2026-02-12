@@ -16,6 +16,10 @@ export interface X402VerifiedResponse {
   tx_hash: string;
   solscan: string;
   content: Record<string, unknown>;
+  transaction?: string;
+  transactionId?: string;
+  signature?: string;
+  premiumContent?: string;
 }
 
 const DEFAULT_ENDPOINT = 'https://x402.payai.network/api/solana-devnet/paid-content';
@@ -143,5 +147,10 @@ export async function verifyX402Payment(
     );
   }
 
-  return data as X402VerifiedResponse;
+  const txHash = data.tx_hash || data.transaction || data.transactionId || data.signature;
+  return {
+    ...data,
+    tx_hash: txHash,
+    solscan: txHash ? `https://solscan.io/tx/${txHash}?cluster=devnet` : '',
+  } as X402VerifiedResponse;
 }
