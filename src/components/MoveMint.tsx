@@ -350,6 +350,33 @@ export default function MoveMint() {
               View payment on Solscan Devnet →
             </a>
           )}
+          {txSignature && !verifiedContent && (
+            <button
+              onClick={async () => {
+                setStatus('Retrying verification...');
+                try {
+                  const verified = await verifyX402Payment(txSignature);
+                  setVerifiedContent(verified);
+                  setStatus(`✅ Payment verified! Move "${moveName}" minted successfully.`);
+                } catch (err: any) {
+                  setStatus(`⚠️ Verification still pending: ${err.message || 'Try again in a moment.'}`);
+                }
+              }}
+              style={{
+                marginTop: '0.5rem',
+                padding: '0.5rem 1rem',
+                borderRadius: 8,
+                border: '1px solid #00dbde',
+                background: 'rgba(0, 219, 222, 0.15)',
+                color: '#00dbde',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+              }}
+            >
+              🔄 Retry Verification
+            </button>
+          )}
           {verifiedContent && (
             <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#00dbde' }}>
               x402 verified ✓
