@@ -8,11 +8,10 @@ import {
   getAccount,
 } from '@solana/spl-token';
 import { fetchX402Requirements, verifyX402Payment, buildX402PaymentHeader, type X402PaymentRequirement } from '@/lib/x402';
+import { ExternalLink, RefreshCw, AlertTriangle, CheckCircle2, Loader2, Wallet } from 'lucide-react';
 
 const connection = new Connection(import.meta.env.VITE_SOLANA_RPC || 'https://api.devnet.solana.com');
-
-// Devnet SOL equivalent for $0.01 USDC (SOL is free on devnet, so this is symbolic)
-const SOL_AMOUNT_LAMPORTS = 100_000; // 0.0001 SOL
+const SOL_AMOUNT_LAMPORTS = 100_000;
 
 type PaymentMethod = 'usdc' | 'sol';
 
@@ -27,7 +26,6 @@ export default function MoveMint() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('usdc');
 
-  // Store payment req and signed tx for retry verification
   const paymentReqRef = useRef<X402PaymentRequirement | null>(null);
   const signedTxBase64Ref = useRef<string | null>(null);
 
@@ -236,11 +234,17 @@ export default function MoveMint() {
     }
   };
 
+  const isLoading = status && !status.startsWith('✅') && !status.startsWith('❌') && !status.startsWith('⚠️') && status !== '';
+  const isSuccess = status.startsWith('✅');
+  const isError = status.startsWith('❌');
+  const isWarning = status.startsWith('⚠️');
+
   return (
-    <div>
-      <div style={{ marginBottom: '1rem' }}>
+    <div className="space-y-6">
+      {/* Wallet Connection */}
+      <div>
         {!authenticated ? (
-          <div>
+          <div className="space-y-3">
             <button
               onClick={async () => {
                 setIsConnecting(true);
@@ -263,40 +267,26 @@ export default function MoveMint() {
                 }
               }}
               disabled={isConnecting || !ready}
-              style={{
-                padding: '0.75rem 1.5rem',
-                borderRadius: 8,
-                border: 'none',
-                background: isConnecting || !ready
-                  ? 'rgba(255,255,255,0.3)'
-                  : 'linear-gradient(90deg, #00dbde, #fc00ff)',
-                color: '#fff',
-                fontWeight: 700,
-                cursor: (isConnecting || !ready) ? 'not-allowed' : 'pointer',
-              }}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.5)] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
             >
-              {isConnecting ? 'Connecting...' : 'Connect Wallet (Privy)'}
+              <Wallet className="w-5 h-5" />
+              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
             </button>
             {typeof window !== 'undefined' && !(window as any).solana?.isPhantom && (
-              <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', opacity: 0.7, color: '#ffa500' }}>
-                ⚠️ Phantom wallet not detected. Please install Phantom extension.
+              <p className="flex items-center gap-1.5 text-sm text-yellow-400/80">
+                <AlertTriangle className="w-4 h-4" />
+                Phantom wallet not detected. Please install Phantom extension.
               </p>
             )}
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <span style={{ opacity: 0.7 }}>
-              Connected: {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground font-mono">
+              {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}
             </span>
             <button
               onClick={() => logout()}
-              style={{
-                padding: '0.5rem 1rem',
-                borderRadius: 8,
-                border: '1px solid rgba(255,255,255,0.3)',
-                background: 'transparent',
-                color: '#fff',
-              }}
+              className="px-4 py-2 rounded-xl text-sm border border-white/10 bg-white/5 hover:bg-white/10 text-foreground transition-colors"
             >
               Disconnect
             </button>
@@ -305,92 +295,64 @@ export default function MoveMint() {
       </div>
 
       {!authenticated ? (
-        <p style={{ textAlign: 'center', opacity: 0.7 }}>
+        <p className="text-center text-muted-foreground text-sm">
           Connect your wallet to mint a dance move NFT on Solana devnet.
         </p>
       ) : isEthereumWallet ? (
-        <div style={{
-          padding: '1rem',
-          borderRadius: 8,
-          background: 'rgba(255, 165, 0, 0.1)',
-          border: '1px solid rgba(255, 165, 0, 0.3)',
-          marginBottom: '1rem',
-        }}>
-          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600, color: '#ffa500' }}>
-            ⚠️ Ethereum Wallet Detected
+        <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-5 space-y-3">
+          <p className="font-semibold text-yellow-400 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            Ethereum Wallet Detected
           </p>
-          <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.9 }}>
+          <p className="text-sm text-foreground/80">
             You're connected with an Ethereum wallet ({connectedAddress?.slice(0, 6)}...{connectedAddress?.slice(-4)}).
-            This dApp requires a <strong>Solana wallet</strong>.
+            This dApp requires a <strong className="text-foreground">Solana wallet</strong>.
           </p>
-          <ol style={{ margin: '0.75rem 0 0 0', paddingLeft: '1.5rem', fontSize: '0.85rem', opacity: 0.9 }}>
+          <ol className="text-sm text-foreground/70 list-decimal pl-5 space-y-1">
             <li>Open your Phantom wallet extension</li>
             <li>Click the network selector at the top</li>
-            <li>Switch from "Sepolia" to <strong>"Devnet"</strong> (Solana)</li>
-            <li>Disconnect and reconnect here, or refresh the page</li>
+            <li>Switch from "Sepolia" to <strong className="text-foreground">Devnet</strong> (Solana)</li>
+            <li>Disconnect and reconnect here</li>
           </ol>
           <button
             onClick={() => logout()}
-            style={{
-              marginTop: '1rem',
-              padding: '0.5rem 1rem',
-              borderRadius: 8,
-              border: '1px solid rgba(255, 165, 0, 0.5)',
-              background: 'rgba(255, 165, 0, 0.2)',
-              color: '#ffa500',
-              cursor: 'pointer',
-            }}
+            className="px-4 py-2 rounded-xl text-sm border border-yellow-500/40 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-colors"
           >
             Disconnect & Switch to Solana
           </button>
         </div>
       ) : (
-        <form onSubmit={(e) => { e.preventDefault(); mintMove(); }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Move Name
-            </label>
+        <form onSubmit={(e) => { e.preventDefault(); mintMove(); }} className="space-y-5">
+          {/* Move Name */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground/90">Move Name</label>
             <input
               type="text"
               value={moveName}
               onChange={(e) => setMoveName(e.target.value)}
               placeholder="e.g., 'Asura's Signature Chest Pop'"
               required
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 8,
-                border: '1px solid rgba(255,255,255,0.2)',
-                background: 'rgba(255,255,255,0.05)',
-                color: '#fff',
-              }}
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
             />
           </div>
 
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Video Hash or Expression
-            </label>
+          {/* Video Hash */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground/90">Video Hash or Expression</label>
             <input
               type="text"
               value={videoHash}
               onChange={(e) => setVideoHash(e.target.value)}
               placeholder="IPFS CID or text description of the move"
               required
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: 8,
-                border: '1px solid rgba(255,255,255,0.2)',
-                background: 'rgba(255,255,255,0.05)',
-                color: '#fff',
-              }}
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
             />
           </div>
 
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Royalty Percentage: {royalty}%
+          {/* Royalty Slider */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground/90">
+              Royalty Percentage: <span className="gradient-text font-bold">{royalty}%</span>
             </label>
             <input
               type="range"
@@ -398,88 +360,53 @@ export default function MoveMint() {
               max="100"
               value={royalty}
               onChange={(e) => setRoyalty(Number(e.target.value))}
-              style={{ width: '100%' }}
+              className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
             />
           </div>
 
           {/* Payment Method Toggle */}
-          <div style={{
-            marginBottom: '1.5rem',
-            padding: '0.75rem',
-            borderRadius: 8,
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
-          }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.9rem' }}>
-              Payment Method
-            </label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="glass rounded-xl p-4 space-y-3">
+            <label className="block text-sm font-medium text-foreground/90">Payment Method</label>
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setPaymentMethod('usdc')}
-                style={{
-                  flex: 1,
-                  padding: '0.6rem',
-                  borderRadius: 6,
-                  border: paymentMethod === 'usdc'
-                    ? '2px solid #00dbde'
-                    : '1px solid rgba(255,255,255,0.2)',
-                  background: paymentMethod === 'usdc'
-                    ? 'rgba(0, 219, 222, 0.15)'
-                    : 'transparent',
-                  color: paymentMethod === 'usdc' ? '#00dbde' : '#fff',
-                  fontWeight: paymentMethod === 'usdc' ? 700 : 400,
-                  cursor: 'pointer',
-                  fontSize: '0.85rem',
-                }}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all duration-300 ${
+                  paymentMethod === 'usdc'
+                    ? 'bg-primary/15 border-2 border-primary text-primary shadow-[0_0_15px_-5px_hsl(var(--primary)/0.4)]'
+                    : 'border border-white/10 text-muted-foreground hover:bg-white/5'
+                }`}
               >
                 💵 USDC (x402)
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentMethod('sol')}
-                style={{
-                  flex: 1,
-                  padding: '0.6rem',
-                  borderRadius: 6,
-                  border: paymentMethod === 'sol'
-                    ? '2px solid #9945FF'
-                    : '1px solid rgba(255,255,255,0.2)',
-                  background: paymentMethod === 'sol'
-                    ? 'rgba(153, 69, 255, 0.15)'
-                    : 'transparent',
-                  color: paymentMethod === 'sol' ? '#9945FF' : '#fff',
-                  fontWeight: paymentMethod === 'sol' ? 700 : 400,
-                  cursor: 'pointer',
-                  fontSize: '0.85rem',
-                }}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all duration-300 ${
+                  paymentMethod === 'sol'
+                    ? 'bg-secondary/15 border-2 border-secondary text-secondary shadow-[0_0_15px_-5px_hsl(var(--secondary)/0.4)]'
+                    : 'border border-white/10 text-muted-foreground hover:bg-white/5'
+                }`}
               >
                 ◎ SOL (Direct)
               </button>
             </div>
-            <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.75rem', opacity: 0.5 }}>
+            <p className="text-xs text-muted-foreground/60">
               {paymentMethod === 'usdc'
                 ? 'Pay $0.01 USDC via x402 protocol with on-chain verification'
                 : 'Pay 0.0001 SOL directly (devnet) — no x402 verification'}
             </p>
           </div>
 
+          {/* Mint Button */}
           <button
             type="submit"
             disabled={!moveName || !videoHash}
-            style={{
-              width: '100%',
-              padding: '1rem',
-              borderRadius: 8,
-              border: 'none',
-              background: paymentMethod === 'sol'
-                ? 'linear-gradient(90deg, #9945FF, #14F195)'
-                : 'linear-gradient(90deg, #00dbde, #fc00ff)',
-              color: '#fff',
-              fontWeight: 700,
-              cursor: (!moveName || !videoHash) ? 'not-allowed' : 'pointer',
-              opacity: (!moveName || !videoHash) ? 0.6 : 1,
-            }}
+            className={`w-full py-4 rounded-xl font-bold text-white text-base transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed btn-shimmer bg-[length:200%_auto] ${
+              paymentMethod === 'sol'
+                ? 'bg-gradient-to-r from-[hsl(var(--gradient-solana-purple))] to-[hsl(var(--gradient-solana-green))] hover:shadow-[0_0_40px_-8px_hsl(var(--gradient-solana-purple)/0.5)]'
+                : 'bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_40px_-8px_hsl(var(--primary)/0.5)]'
+            }`}
           >
             {paymentMethod === 'usdc'
               ? 'Mint Move NFT (x402 · $0.01 USDC)'
@@ -488,96 +415,78 @@ export default function MoveMint() {
         </form>
       )}
 
+      {/* Status Display */}
       {status && (
-        <div style={{
-          marginTop: '1rem',
-          padding: '1rem',
-          borderRadius: 8,
-          background: status.startsWith('✅') ? 'rgba(0,219,222,0.1)' : status.startsWith('❌') ? 'rgba(255,0,0,0.1)' : status.startsWith('⚠️') ? 'rgba(255,165,0,0.1)' : 'rgba(255,255,255,0.05)',
-          border: `1px solid ${status.startsWith('✅') ? '#00dbde' : status.startsWith('❌') ? '#ff4444' : status.startsWith('⚠️') ? '#ffa500' : 'rgba(255,255,255,0.1)'}`,
-        }}>
-          <p style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.9rem' }}>{status}</p>
+        <div className={`rounded-xl p-5 border transition-all duration-300 ${
+          isSuccess ? 'bg-[hsl(var(--gradient-cyan))]/5 border-primary/30' :
+          isError ? 'bg-destructive/5 border-destructive/30' :
+          isWarning ? 'bg-yellow-500/5 border-yellow-500/30' :
+          'glass'
+        }`}>
+          <div className="flex items-start gap-3">
+            {isLoading && <Loader2 className="w-5 h-5 text-primary animate-spin shrink-0 mt-0.5" />}
+            {isSuccess && <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />}
+            {isError && <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />}
+            {isWarning && <AlertTriangle className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />}
+            <p className="text-sm whitespace-pre-wrap leading-relaxed">{status}</p>
+          </div>
+
           {txSignature && (
             <a
               href={`https://solscan.io/tx/${txSignature}?cluster=devnet`}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: '#00dbde', fontSize: '0.85rem', marginTop: '0.5rem', display: 'block' }}
+              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
             >
-              View payment on Solscan Devnet →
+              <ExternalLink className="w-4 h-4" />
+              View on Solscan Devnet
             </a>
           )}
+
           {txSignature && !verifiedContent && paymentMethod === 'usdc' && (
             <button
               onClick={retryVerification}
-              style={{
-                marginTop: '0.5rem',
-                padding: '0.5rem 1rem',
-                borderRadius: 8,
-                border: '1px solid #00dbde',
-                background: 'rgba(0, 219, 222, 0.15)',
-                color: '#00dbde',
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontSize: '0.85rem',
-              }}
+              className="mt-3 ml-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-primary/30 text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
             >
-              🔄 Retry Verification
+              <RefreshCw className="w-4 h-4" />
+              Retry Verification
             </button>
           )}
+
           {verifiedContent && (
-            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#00dbde' }}>
+            <p className="mt-3 text-sm text-primary font-medium flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4" />
               {paymentMethod === 'usdc' ? 'x402 verified ✓' : 'On-chain confirmed ✓'}
             </p>
           )}
         </div>
       )}
 
-      {/* Debug Panel — visible after a payment attempt */}
+      {/* Debug Panel */}
       {signedTxBase64Ref.current && paymentReqRef.current && (
-        <details style={{
-          marginTop: '1rem',
-          borderRadius: 8,
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.1)',
-        }}>
-          <summary style={{
-            padding: '0.75rem',
-            cursor: 'pointer',
-            fontSize: '0.8rem',
-            opacity: 0.6,
-            fontFamily: 'monospace',
-          }}>
+        <details className="rounded-xl glass overflow-hidden">
+          <summary className="px-4 py-3 cursor-pointer text-xs text-muted-foreground/50 font-mono hover:text-muted-foreground/80 transition-colors">
             🔍 Payment Header Debug
           </summary>
-          <div style={{
-            padding: '0.75rem',
-            fontSize: '0.75rem',
-            fontFamily: 'monospace',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all',
-            maxHeight: '300px',
-            overflow: 'auto',
-            color: '#aaa',
-          }}>
-            <p style={{ margin: '0 0 0.5rem', fontWeight: 600, color: '#00dbde' }}>Decoded PAYMENT-SIGNATURE payload:</p>
+          <div className="px-4 pb-4 text-xs font-mono whitespace-pre-wrap break-all max-h-72 overflow-auto text-muted-foreground/60">
+            <p className="mb-2 font-semibold text-primary">Decoded PAYMENT-SIGNATURE payload:</p>
             {(() => {
               try {
                 const url = import.meta.env.VITE_X402_ENDPOINT || 'https://x402.payai.network/api/solana-devnet/paid-content';
                 const header = buildX402PaymentHeader(signedTxBase64Ref.current!, paymentReqRef.current!, url);
                 const decoded = JSON.parse(atob(header));
-                return <pre style={{ margin: 0 }}>{JSON.stringify(decoded, null, 2)}</pre>;
+                return <pre className="m-0">{JSON.stringify(decoded, null, 2)}</pre>;
               } catch {
                 return <span>Could not decode header</span>;
               }
             })()}
-            <p style={{ margin: '1rem 0 0.5rem', fontWeight: 600, color: '#9945FF' }}>Raw 402 requirements:</p>
-            <pre style={{ margin: 0 }}>{JSON.stringify(paymentReqRef.current, null, 2)}</pre>
+            <p className="mt-4 mb-2 font-semibold text-secondary">Raw 402 requirements:</p>
+            <pre className="m-0">{JSON.stringify(paymentReqRef.current, null, 2)}</pre>
           </div>
         </details>
       )}
 
-      <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', opacity: 0.6 }}>
+      <p className="text-xs text-muted-foreground/50 text-center">
         {paymentMethod === 'usdc'
           ? 'Minting uses x402 payment protocol — $0.01 USDC on Solana Devnet. You need devnet USDC in your Phantom wallet.'
           : 'Minting with native SOL — 0.0001 SOL on Solana Devnet. Get free devnet SOL from a faucet.'}
