@@ -1,38 +1,49 @@
 
 
-# Add Tech Stack Section to Landing Page
+# Fix Metaplex NullSigner Error
 
-## What
+## Problem
 
-Add a visually appealing "Powered By" / "Tech Stack" section to the Index page showcasing the key technologies: Privy, Helius, Metaplex, World ID, x402, Solana, and shadcn/ui.
+`createUmi()` initializes without a signer identity, so when Umi tries to build the transaction internally, it hits the NullSigner fallback and throws.
 
-## Design
+## Solution
 
-A grid of tech cards between the Feature Cards and Footer sections, each showing the technology name, a brief one-liner description, and an icon or emoji. Styled consistently with the existing glass-card aesthetic.
+Instead of trying to use Umi's transaction builder end-to-end (which requires a Umi-compatible signer), we'll convert the Umi transaction to a web3.js `VersionedTransaction` and have Phantom sign it directly -- consistent with how the Anchor transaction is already handled.
 
-## Technologies to Feature
+## Changes
 
-| Tech | Description |
-|------|-------------|
-| Solana | High-speed blockchain for NFT minting |
-| Metaplex | On-chain NFT metadata standard |
-| Helius | Real-time webhook and RPC infrastructure |
-| Privy | Wallet authentication and onboarding |
-| World ID | Proof-of-personhood verification |
-| x402 | Micropayment-gated skill verification |
-| Lovable Cloud | Backend functions and data storage |
-| shadcn/ui | Accessible UI component library |
+### `src/lib/metaplex.ts`
 
-## Technical Details
+1. After calling `createV1(...)`, use Umi's `toTransaction()` to convert the built instruction into a web3.js-compatible transaction
+2. Set a dummy signer identity on Umi using `signerIdentity(createNoopSigner(...))` so Umi can build the instruction without erroring -- the actual signing happens via Phantom
+3. Export a function that returns a web3.js `Transaction` (or `TransactionInstruction[]`) instead of a Umi `TransactionBuilder`, so `MoveMint.tsx` can send it through Phantom's `signAndSendTransaction` just like the Anchor mint step
 
-### File Modified
-- `src/pages/Index.tsx` -- add a new `TechStackSection` between the Feature Cards and Footer
+### `src/components/MoveMint.tsx`
 
-### Implementation
-- Create a `TechStackCard` component (inline in Index.tsx) similar to the existing `FeatureCard` pattern
-- Use Lucide icons where available (e.g., `Cpu`, `Globe`, `Shield`, `Layers`, `Database`) and fallback to emoji for others
-- Each card links to the technology's website via `target="_blank"`
-- Responsive grid: 2 columns on mobile, 4 columns on desktop
-- Same `glass-strong` + `animate-slide-up-fade` styling as existing cards
-- Section header: "Built With" with a gradient icon
+Update the Metaplex metadata step to:
+- Get back a standard web3.js Transaction from the helper
+- Sign and send it via Phantom (same pattern as the Anchor mint step)
+- Remove the Umi-specific transaction building/signing logic
 
+## Technical Approach
+
+```text
+getUmi() changes:
+  - Import signerIdentity from @metaplex-foundation/umi
+  - After createUmi(endpoint).use(mplTokenMetadata()), call .use(signerIdentity(creatorNoopSigner))
+  - This satisfies Umi's internal requirement without actually signing
+
+buildCreateMetadataInstruction() changes:
+  - Set signerIdentity on Umi to the creator's noop signer
+  - Build the transaction via transactionBuilder.buildWithLatestBlockhash(umi)
+  - Convert to a web3.js Transaction using toWeb3JsTransaction from umi-web3js-adapters
+  - Return the web3.js Transaction for Phantom to sign
+
+MoveMint.tsx changes:
+  - Call the updated helper to get a web3.js Transaction
+  - Send via Phantom's signAndSendTransaction (existing pattern)
+```
+
+## Files Modified
+- `src/lib/metaplex.ts` -- set signerIdentity, return web3.js Transaction
+- `src/components/MoveMint.tsx` -- use standard Phantom signing for Metaplex tx
