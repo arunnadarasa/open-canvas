@@ -1,49 +1,44 @@
 
 
-## Integrate x402 Payment via PayAI Network
+## Fix: "Failed to fetch" CORS Error with x402 Endpoint
 
-### What Changes
-When the user clicks "Mint Move NFT", the app will first check the x402 endpoint for payment requirements, make the USDC payment, then verify it -- all before confirming the mint.
+### Problem
+The browser blocks the `fetch()` call to `https://x402.payai.network/api/solana-devnet/paid-content` because the server doesn't return the correct CORS headers for the Lovable preview origin. This results in a `TypeError: Failed to fetch`.
 
-### Endpoint
-`https://x402.payai.network/api/solana-devnet/paid-content`
+### Solution
+Use a lightweight CORS proxy approach. Since we can't control the x402 server's CORS policy, we'll create a Supabase Edge Function that proxies requests to the x402 endpoint server-side, bypassing the browser's CORS restriction.
 
-This endpoint returns a 402 response with USDC payment details ($0.01 USDC on Solana Devnet). After payment, the app retries with the transaction signature to verify and unlock the content.
+### Changes
 
-### Files to Create/Modify
+**1. New: `supabase/functions/x402-proxy/index.ts`**
+- A Supabase Edge Function that:
+  - Accepts GET requests with an optional `payment-signature` query param or header
+  - Forwards the request to `https://x402.payai.network/api/solana-devnet/paid-content`
+  - Passes through the `Payment-Signature` header if present
+  - Returns the response with proper CORS headers
+  - Handles both the initial 402 requirement fetch and the payment verification step
 
-**1. New: `src/lib/x402.ts`**
-- `fetchX402Requirements(url)` -- calls the endpoint, parses the 402 JSON to extract payment details (recipient address, USDC amount, token mint)
-- `verifyX402Payment(url, txSignature)` -- retries the endpoint with `Payment-Signature` header, returns the unlocked content on 200
+**2. Update: `src/lib/x402.ts`**
+- Change the default endpoint URL to use the Supabase Edge Function proxy instead of calling the x402 endpoint directly
+- The proxy URL will be constructed from the Supabase project URL (e.g., `https://<project>.supabase.co/functions/v1/x402-proxy`)
+- Keep the same interface -- no changes needed in MoveMint.tsx
 
-**2. Update: `src/components/MoveMint.tsx`**
-- Replace the hardcoded treasury PDA + 0.001 SOL transfer with the x402 flow:
-  1. Call `fetchX402Requirements()` to get payment details
-  2. Build a USDC SPL token transfer (not native SOL) to the returned recipient address
-  3. Sign via Phantom, broadcast, get tx signature
-  4. Call `verifyX402Payment()` with the signature
-  5. On success, show verified status with Solscan link
-- Add USDC token transfer logic using `@solana/spl-token` (already installed) to find/create associated token accounts and transfer
-- Update status messages to reflect the x402 flow stages ("Fetching payment requirements...", "Paying $0.01 USDC...", "Verifying payment...")
-- Keep the existing wallet connection and Ethereum detection UI unchanged
-
-**3. Update: `.env.example`**
-- Add `VITE_X402_ENDPOINT=https://x402.payai.network/api/solana-devnet/paid-content`
-
-### Technical Flow
+### How It Works
 
 ```text
-User clicks Mint
-  -> GET x402 endpoint
-  -> 402 response: { to, amount: 0.01, token: USDC_MINT }
-  -> Build SPL Token transfer (USDC) to recipient
-  -> Phantom signs transaction
-  -> Broadcast + confirm on devnet
-  -> GET x402 endpoint + Payment-Signature header
-  -> 200 response: content unlocked, mint confirmed
+Browser (MoveMint)
+  -> GET /functions/v1/x402-proxy  (same-origin, no CORS issue)
+  -> Edge Function forwards to x402.payai.network
+  -> Returns 402 response with payment details
+
+Browser (after payment)
+  -> GET /functions/v1/x402-proxy + Payment-Signature header
+  -> Edge Function forwards with header
+  -> Returns 200 verified response
 ```
 
-### Notes
-- The USDC devnet mint address (`4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`) will be parsed from the 402 response
-- Users need devnet USDC in their wallet -- the UI will show a helpful message if balance is insufficient
-- Falls back gracefully if the x402 endpoint is unreachable
+### Why This Approach
+- No changes needed to the x402 server
+- Edge Functions run server-side so CORS doesn't apply
+- The proxy is simple and stateless
+- MoveMint.tsx doesn't need any changes
