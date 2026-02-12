@@ -7,11 +7,11 @@ import {
 import {
   percentAmount,
   createNoopSigner,
+  signerIdentity,
   type Umi,
-  type TransactionBuilder,
 } from '@metaplex-foundation/umi';
-import { fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters';
-import type { PublicKey } from '@solana/web3.js';
+import { fromWeb3JsPublicKey, toWeb3JsLegacyTransaction } from '@metaplex-foundation/umi-web3js-adapters';
+import type { PublicKey, Transaction } from '@solana/web3.js';
 
 let _umi: Umi | null = null;
 
@@ -24,27 +24,29 @@ export function getUmi(): Umi {
 }
 
 /**
- * Build a Metaplex createV1 instruction to attach NFT metadata
+ * Build a Metaplex createV1 transaction to attach NFT metadata
  * to an already-existing mint account.
  *
- * Returns an unsigned Umi TransactionBuilder — the caller must
- * convert it to a legacy Transaction and have Phantom sign it.
+ * Returns a web3.js Transaction ready for Phantom to sign.
  */
-export function buildCreateMetadataInstruction(params: {
+export async function buildCreateMetadataTransaction(params: {
   mintPublicKey: PublicKey;
   creatorPublicKey: PublicKey;
   name: string;
   symbol?: string;
   uri: string;
   sellerFeeBasisPoints: number;
-}): TransactionBuilder {
+}): Promise<Transaction> {
   const umi = getUmi();
 
   const mint = fromWeb3JsPublicKey(params.mintPublicKey);
   const creatorKey = fromWeb3JsPublicKey(params.creatorPublicKey);
   const creatorSigner = createNoopSigner(creatorKey);
 
-  return createV1(umi, {
+  // Set the signer identity so Umi can build the transaction without NullSigner error
+  umi.use(signerIdentity(creatorSigner));
+
+  const builder = createV1(umi, {
     mint: createNoopSigner(mint),
     authority: creatorSigner,
     payer: creatorSigner,
@@ -62,6 +64,10 @@ export function buildCreateMetadataInstruction(params: {
       },
     ],
   });
+
+  // Build with latest blockhash and convert to web3.js Transaction
+  const umiTx = await builder.buildWithLatestBlockhash(umi);
+  return toWeb3JsLegacyTransaction(umiTx);
 }
 
 /**
