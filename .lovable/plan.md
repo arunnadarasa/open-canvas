@@ -1,50 +1,28 @@
 
 
-# Helius API Key Integration
+# Fix: IDL Type Format for Anchor 0.32
 
-## What We'll Do
+## Root Cause
 
-Use your Helius API key to **automatically register a webhook** that watches your MoveRegistry program for on-chain events. This removes any manual webhook setup -- one edge function call and it's done.
+The error `Cannot use 'in' operator to search for 'option' in publicKey` occurs because Anchor 0.32's BorshCoder expects the type name `"pubkey"` for public key fields, but our IDL uses the older format `"publicKey"`.
 
-## Steps
+When the coder encounters `"publicKey"`, it doesn't match any known primitive type (the switch case checks for `"pubkey"`), falls through to the `default` branch, and tries `"option" in "publicKey"` -- which crashes because the `in` operator cannot be used on a string.
 
-### 1. Store the Helius API Key
-Securely store your Helius API key ("Toucancopper") as a backend secret so it's available to edge functions.
+## Fix
 
-### 2. Create a `helius-setup` Edge Function
-A new edge function (`supabase/functions/helius-setup/index.ts`) that:
-- Calls the Helius REST API (`POST https://api.helius.xyz/v0/webhooks?api-key=...`)
-- Registers a webhook watching your program ID (`Dp2JcVDt4seef6LbPCtoHiD5nrHkRUFHJdBPdCUTVeDQ`)
-- Sets the webhook URL to your existing `helius-webhook` edge function endpoint
-- Uses `webhookType: "enhanced"` for parsed transaction data
-- Returns the created webhook ID for reference
+Update `src/lib/anchor-idl.ts` to replace all occurrences of `"publicKey"` with `"pubkey"` in type definitions. This affects:
 
-### 3. Update the Existing `helius-webhook` Edge Function
-Add an optional `Authorization` header check using the Helius API key as a shared secret, so only Helius can POST to it (optional security hardening).
-
-### 4. Add a "Setup Webhook" Button or Auto-Setup
-Add a simple way to trigger the setup function (either a button in the UI or call it once on deploy).
+1. **`types` array** -- the `SkillAccount` struct fields: `creator`, `mint`, `treasury` (3 fields)
+2. **`accounts` array** -- same struct duplicated there (3 fields)
+3. **`events` array** -- `SkillMinted` (2 fields), `SkillVerified` (1 field), `SkillLicensed` (2 fields)
 
 ## Technical Details
 
-### Helius Webhook Registration API Call
-```text
-POST https://api.helius.xyz/v0/webhooks?api-key=HELIUS_API_KEY
+Anchor 0.32 IDL primitive type mapping:
+- `"pubkey"` (not `"publicKey"`) -- maps to `borsh.publicKey()`
+- `"string"` -- maps to `borsh.str()`
+- `"u8"`, `"i64"`, `"u64"`, `"bool"` -- unchanged
 
-Body:
-{
-  "webhookURL": "https://rgfmvklcjnljsfsxztyi.supabase.co/functions/v1/helius-webhook",
-  "transactionTypes": ["ANY"],
-  "accountAddresses": ["Dp2JcVDt4seef6LbPCtoHiD5nrHkRUFHJdBPdCUTVeDQ"],
-  "webhookType": "enhanced"
-}
-```
-
-### Files Changed
-- **New**: `supabase/functions/helius-setup/index.ts`
-- **Modified**: `supabase/functions/helius-webhook/index.ts` (minor auth hardening)
-- **Secret**: `HELIUS_API_KEY` added to backend secrets
-
-### Also Fix: The Runtime Error
-The `BorshCoder` error from the IDL should already be resolved by the previous `types` addition. If it persists, we'll verify the IDL types array is complete and matches the on-chain program.
+### File Changed
+- `src/lib/anchor-idl.ts` -- replace all `"publicKey"` type references with `"pubkey"`
 
