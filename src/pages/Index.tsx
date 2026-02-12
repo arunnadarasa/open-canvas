@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown } from 'lucide-react';
+import { usePrivy } from '@privy-io/react-auth';
 import MoveMint from '../components/MoveMint';
 import CertificateGallery from '../components/CertificateGallery';
 import RoyaltyTracker from '../components/RoyaltyTracker';
@@ -33,6 +34,8 @@ function FeatureCard({
 
 export default function Index() {
   const { moves, addMove } = useMintedMoves();
+  const { user } = usePrivy();
+  const walletAddress = user?.wallet?.address || undefined;
   const [worldIdVerified, setWorldIdVerified] = useState(
     () => localStorage.getItem('worldid_verified') === 'true'
   );
@@ -115,7 +118,7 @@ export default function Index() {
             <CertificateGallery moves={moves} />
           </div>
           <div>
-            <RoyaltyTracker />
+            <RoyaltyTracker walletAddress={walletAddress} />
           </div>
         </section>
 

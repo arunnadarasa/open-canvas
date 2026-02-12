@@ -8,6 +8,7 @@ import {
   getAccount,
 } from '@solana/spl-token';
 import { fetchX402Requirements, verifyX402Payment, buildX402PaymentHeader, type X402PaymentRequirement } from '@/lib/x402';
+import { buildMintSkillTransaction, buildVerifySkillTransaction } from '@/lib/anchor-client';
 import { ExternalLink, RefreshCw, AlertTriangle, CheckCircle2, Loader2, Wallet } from 'lucide-react';
 
 const connection = new Connection(import.meta.env.VITE_SOLANA_RPC || 'https://api.devnet.solana.com');
@@ -15,7 +16,7 @@ const SOL_AMOUNT_LAMPORTS = 100_000;
 
 type PaymentMethod = 'usdc' | 'sol';
 
-export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol' }) => void; isWorldIDVerified?: boolean; onRequestVerify?: () => void }) {
+export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol'; mintPubkey?: string; skillPda?: string }) => void; isWorldIDVerified?: boolean; onRequestVerify?: () => void }) {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const [moveName, setMoveName] = useState('');
   const [videoHash, setVideoHash] = useState('');
@@ -68,10 +69,35 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
     }
 
     try {
-      if (paymentMethod === 'sol') {
-        await mintWithSOL(fromPubkey, phantom);
+      // Step 1: Mint on-chain via Anchor program
+      setStatus('Building on-chain mint transaction...');
+      const { transaction: mintTx, mintKeypair, skillPDA, treasuryPDA } = await buildMintSkillTransaction(
+        connection,
+        fromPubkey,
+        moveName,
+        videoHash,
+        royalty,
+      );
+
+      // Partially sign with the mint keypair
+      mintTx.partialSign(mintKeypair);
+
+      setStatus('Please sign the mint transaction in your wallet...');
+      const signedMintTx = await phantom.signTransaction(mintTx);
+      const serializedMintTx = signedMintTx.serialize();
+
+      setStatus('Broadcasting mint transaction...');
+      const mintSignature = await connection.sendRawTransaction(serializedMintTx);
+      await connection.confirmTransaction(mintSignature);
+
+      setTxSignature(mintSignature);
+      setStatus(`✅ On-chain mint confirmed! Tx: ${mintSignature.slice(0, 8)}...`);
+
+      // Step 2: Handle payment (x402 USDC or SOL)
+      if (paymentMethod === 'usdc') {
+        await handleUSDCPayment(fromPubkey, phantom, skillPDA, mintKeypair.publicKey.toBase58(), skillPDA.toBase58(), mintSignature);
       } else {
-        await mintWithUSDC(fromPubkey, phantom);
+        await handleSOLPayment(fromPubkey, phantom, mintKeypair.publicKey.toBase58(), skillPDA.toBase58(), mintSignature);
       }
     } catch (error: any) {
       console.error('Mint error:', error);
@@ -79,12 +105,10 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
     }
   }, [authenticated, moveName, videoHash, royalty, user, paymentMethod]);
 
-  const mintWithSOL = async (fromPubkey: PublicKey, phantom: any) => {
-    setStatus('Fetching payment requirements...');
+  const handleSOLPayment = async (fromPubkey: PublicKey, phantom: any, mintPubkey: string, skillPda: string, mintSignature: string) => {
+    setStatus('Preparing SOL payment...');
     const paymentReq = await fetchX402Requirements();
     const recipientPubkey = new PublicKey(paymentReq.to);
-
-    setStatus(`Preparing SOL transfer (0.0001 SOL) → ${paymentReq.to.slice(0, 6)}...${paymentReq.to.slice(-4)}`);
 
     const transaction = new Transaction().add(
       SystemProgram.transfer({
@@ -98,7 +122,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = fromPubkey;
 
-    setStatus('Please sign the 0.0001 SOL payment in your wallet...');
+    setStatus('Please sign the SOL payment in your wallet...');
     const signedTx = await phantom.signTransaction(transaction);
     const serializedTx = signedTx.serialize();
 
@@ -106,34 +130,21 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
     const signature = await connection.sendRawTransaction(serializedTx);
     await connection.confirmTransaction(signature);
 
-    setTxSignature(signature);
-    paymentReqRef.current = null;
-    signedTxBase64Ref.current = null;
     setVerifiedContent({ message: 'SOL payment confirmed on-chain' });
-    setStatus(
-      `✅ SOL payment confirmed! Move "${moveName}" minted successfully.\nPaid 0.0001 SOL.`
-    );
-    onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: signature, paymentMethod: 'sol' });
+    setStatus(`✅ Move "${moveName}" minted and paid! SOL tx: ${signature.slice(0, 8)}...`);
+    onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'sol', mintPubkey, skillPda });
   };
 
-  const mintWithUSDC = async (fromPubkey: PublicKey, phantom: any) => {
-    // Step 1: Fetch x402 payment requirements
-    setStatus('Fetching payment requirements...');
+  const handleUSDCPayment = async (fromPubkey: PublicKey, phantom: any, skillPDA: PublicKey, mintPubkey: string, skillPda: string, mintSignature: string) => {
+    setStatus('Fetching x402 payment requirements...');
     const paymentReq = await fetchX402Requirements();
     paymentReqRef.current = paymentReq;
 
-    setStatus(
-      `Payment required: ${paymentReq.amount} ${paymentReq.tokenSymbol} → ${paymentReq.to.slice(0, 6)}...${paymentReq.to.slice(-4)}`
-    );
-
-    // Step 2: Build correct 3-instruction transaction per x402 v2 spec
-    setStatus(`Preparing ${paymentReq.tokenSymbol} transfer...`);
+    setStatus(`Payment required: ${paymentReq.amount} ${paymentReq.tokenSymbol}`);
 
     const usdcMint = new PublicKey(paymentReq.token);
     const recipientPubkey = new PublicKey(paymentReq.to);
     const amount = Math.round(parseFloat(paymentReq.rawAmount));
-
-    // Facilitator pays gas — user doesn't need SOL
     const facilitatorPubkey = new PublicKey(paymentReq.extra.feePayer as string);
 
     const senderATA = await getAssociatedTokenAddress(usdcMint, fromPubkey);
@@ -141,82 +152,61 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
 
     const transaction = new Transaction();
 
-    // Check if recipient ATA exists, create if not
     try {
       await getAccount(connection, recipientATA);
     } catch {
-      transaction.add(
-        createAssociatedTokenAccountInstruction(
-          fromPubkey, recipientATA, recipientPubkey, usdcMint
-        )
-      );
+      transaction.add(createAssociatedTokenAccountInstruction(fromPubkey, recipientATA, recipientPubkey, usdcMint));
     }
 
-    // Check sender has USDC
     try {
       const senderAccount = await getAccount(connection, senderATA);
       if (Number(senderAccount.amount) < amount) {
-        throw new Error(
-          `Insufficient USDC balance. You need ${paymentReq.amount} USDC (devnet).`
-        );
+        throw new Error(`Insufficient USDC balance. You need ${paymentReq.amount} USDC (devnet).`);
       }
     } catch (e: any) {
       if (e.message?.includes('Insufficient')) throw e;
       throw new Error('No USDC token account found. You need devnet USDC in your wallet.');
     }
 
-    // x402 v2 requires exactly 3 instructions:
-    // 1. SetComputeUnitLimit
-    // 2. SetComputeUnitPrice (priority fee)
-    // 3. TransferChecked (USDC with decimal verification)
     transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 10_000 }));
     transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000 }));
-    transaction.add(
-      createTransferCheckedInstruction(
-        senderATA,      // source ATA
-        usdcMint,       // mint
-        recipientATA,   // destination ATA
-        fromPubkey,     // owner (signer)
-        amount,         // amount in smallest unit
-        6               // USDC decimals
-      )
-    );
+    transaction.add(createTransferCheckedInstruction(senderATA, usdcMint, recipientATA, fromPubkey, amount, 6));
 
     const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
-    // Facilitator is the fee payer — they co-sign and broadcast later
     transaction.feePayer = facilitatorPubkey;
 
-    // Step 3: Sign with Phantom (partial signature — facilitator hasn't signed yet)
-    setStatus(`Please sign the ${paymentReq.amount} ${paymentReq.tokenSymbol} payment in your wallet...`);
+    setStatus(`Please sign the ${paymentReq.amount} ${paymentReq.tokenSymbol} payment...`);
     const signedTx = await phantom.signTransaction(transaction);
-    // Serialize without requiring all signatures (facilitator will co-sign)
     const serializedTx = signedTx.serialize({ requireAllSignatures: false });
-
-    // Capture signed tx as base64 for x402 header
     const signedTxBase64 = Buffer.from(serializedTx).toString('base64');
     signedTxBase64Ref.current = signedTxBase64;
 
-    // Step 4: Send to x402 facilitator via edge function proxy
-    // We do NOT broadcast locally — the facilitator co-signs and broadcasts
-    setStatus('Sending payment to x402 facilitator for verification...');
+    setStatus('Sending to x402 facilitator for verification...');
 
     try {
       const verified = await verifyX402Payment(signedTxBase64, paymentReq);
       setVerifiedContent(verified);
-      // tx hash comes from the facilitator, not local broadcast
-      if (verified.tx_hash) {
-        setTxSignature(verified.tx_hash);
+      if (verified.tx_hash) setTxSignature(verified.tx_hash);
+
+      // After x402 verification, call verify_skill on-chain
+      setStatus('Verifying move on-chain...');
+      try {
+        const verifyTx = await buildVerifySkillTransaction(connection, fromPubkey, skillPDA);
+        const signedVerifyTx = await phantom.signTransaction(verifyTx);
+        const serializedVerifyTx = signedVerifyTx.serialize();
+        const verifySig = await connection.sendRawTransaction(serializedVerifyTx);
+        await connection.confirmTransaction(verifySig);
+        setStatus(`✅ Move "${moveName}" minted and verified on-chain!`);
+      } catch (verifyErr: any) {
+        console.warn('On-chain verify failed (may already be verified):', verifyErr);
+        setStatus(`✅ Move "${moveName}" minted! x402 verified. On-chain verify: ${verifyErr.message?.slice(0, 60)}`);
       }
-      setStatus(
-        `✅ Payment verified! Move "${moveName}" minted successfully.\nPaid ${paymentReq.amount} ${paymentReq.tokenSymbol}.`
-      );
-      onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: verified.tx_hash || '', paymentMethod: 'usdc' });
+
+      onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'usdc', mintPubkey, skillPda });
     } catch (verifyErr: any) {
       const errMsg = typeof verifyErr === 'object' ? (verifyErr.message || JSON.stringify(verifyErr)) : String(verifyErr);
-      setStatus(
-        `⚠️ Facilitator verification failed: ${errMsg}`
-      );
+      setStatus(`⚠️ Facilitator verification failed: ${errMsg}`);
     }
   };
 

@@ -14,7 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      minted_moves: {
+        Row: {
+          created_at: string
+          creator_wallet: string
+          expression: string | null
+          id: string
+          mint_pubkey: string | null
+          move_name: string
+          payment_method: string
+          royalty_percent: number
+          skill_pda: string | null
+          tx_signature: string | null
+          verified: boolean
+        }
+        Insert: {
+          created_at?: string
+          creator_wallet: string
+          expression?: string | null
+          id?: string
+          mint_pubkey?: string | null
+          move_name: string
+          payment_method?: string
+          royalty_percent?: number
+          skill_pda?: string | null
+          tx_signature?: string | null
+          verified?: boolean
+        }
+        Update: {
+          created_at?: string
+          creator_wallet?: string
+          expression?: string | null
+          id?: string
+          mint_pubkey?: string | null
+          move_name?: string
+          payment_method?: string
+          royalty_percent?: number
+          skill_pda?: string | null
+          tx_signature?: string | null
+          verified?: boolean
+        }
+        Relationships: []
+      }
+      royalty_events: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          mint_pubkey: string
+          payer_wallet: string
+          royalty_amount: number
+          tx_signature: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          mint_pubkey: string
+          payer_wallet: string
+          royalty_amount: number
+          tx_signature?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          mint_pubkey?: string
+          payer_wallet?: string
+          royalty_amount?: number
+          tx_signature?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
