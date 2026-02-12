@@ -58,14 +58,14 @@ export const MOVE_REGISTRY_IDL = {
       type: {
         kind: 'struct',
         fields: [
-          { name: 'creator', type: 'publicKey' },
+          { name: 'creator', type: 'pubkey' },
           { name: 'skillName', type: 'string' },
           { name: 'expression', type: 'string' },
           { name: 'timestamp', type: 'i64' },
           { name: 'royaltyPercent', type: 'u8' },
           { name: 'verified', type: 'bool' },
-          { name: 'mint', type: 'publicKey' },
-          { name: 'treasury', type: 'publicKey' },
+          { name: 'mint', type: 'pubkey' },
+          { name: 'treasury', type: 'pubkey' },
         ],
       },
     },
@@ -74,20 +74,20 @@ export const MOVE_REGISTRY_IDL = {
     {
       name: 'SkillMinted',
       fields: [
-        { name: 'creator', type: 'publicKey', index: false },
-        { name: 'mint', type: 'publicKey', index: false },
+        { name: 'creator', type: 'pubkey', index: false },
+        { name: 'mint', type: 'pubkey', index: false },
         { name: 'skillName', type: 'string', index: false },
       ],
     },
     {
       name: 'SkillVerified',
-      fields: [{ name: 'mint', type: 'publicKey', index: false }],
+      fields: [{ name: 'mint', type: 'pubkey', index: false }],
     },
     {
       name: 'SkillLicensed',
       fields: [
-        { name: 'mint', type: 'publicKey', index: false },
-        { name: 'payer', type: 'publicKey', index: false },
+        { name: 'mint', type: 'pubkey', index: false },
+        { name: 'payer', type: 'pubkey', index: false },
         { name: 'amount', type: 'u64', index: false },
         { name: 'royalty', type: 'u64', index: false },
       ],
@@ -103,14 +103,14 @@ export const MOVE_REGISTRY_IDL = {
       type: {
         kind: 'struct' as const,
         fields: [
-          { name: 'creator', type: 'publicKey' },
+          { name: 'creator', type: 'pubkey' },
           { name: 'skillName', type: 'string' },
           { name: 'expression', type: 'string' },
           { name: 'timestamp', type: 'i64' },
           { name: 'royaltyPercent', type: 'u8' },
           { name: 'verified', type: 'bool' },
-          { name: 'mint', type: 'publicKey' },
-          { name: 'treasury', type: 'publicKey' },
+          { name: 'mint', type: 'pubkey' },
+          { name: 'treasury', type: 'pubkey' },
         ],
       },
     },
