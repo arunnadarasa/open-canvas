@@ -15,7 +15,7 @@ export interface X402VerifiedResponse {
 }
 
 const DEFAULT_ENDPOINT = 'https://x402.payai.network/api/solana-devnet/paid-content';
-const CORS_PROXY = 'https://corsproxy.io/?url=';
+const CORS_PROXY = 'https://corsproxy.io/?key=83d86fb9&url=';
 
 function proxyUrl(url: string): string {
   return `${CORS_PROXY}${encodeURIComponent(url)}`;
