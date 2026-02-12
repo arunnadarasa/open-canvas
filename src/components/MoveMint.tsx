@@ -115,6 +115,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
           sellerFeeBasisPoints: royalty * 100,
         });
 
+        web3Tx.partialSign(mintKeypair);
         setStatus('Please sign the metadata transaction in your wallet...');
         const signedMetaTx = await phantom.signTransaction(web3Tx);
         const serializedMetaTx = signedMetaTx.serialize();
