@@ -15,7 +15,7 @@ const SOL_AMOUNT_LAMPORTS = 100_000;
 
 type PaymentMethod = 'usdc' | 'sol';
 
-export default function MoveMint() {
+export default function MoveMint({ onMintSuccess }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol' }) => void }) {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const [moveName, setMoveName] = useState('');
   const [videoHash, setVideoHash] = useState('');
@@ -113,6 +113,7 @@ export default function MoveMint() {
     setStatus(
       `✅ SOL payment confirmed! Move "${moveName}" minted successfully.\nPaid 0.0001 SOL.`
     );
+    onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: signature, paymentMethod: 'sol' });
   };
 
   const mintWithUSDC = async (fromPubkey: PublicKey, phantom: any) => {
@@ -210,6 +211,7 @@ export default function MoveMint() {
       setStatus(
         `✅ Payment verified! Move "${moveName}" minted successfully.\nPaid ${paymentReq.amount} ${paymentReq.tokenSymbol}.`
       );
+      onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: verified.tx_hash || '', paymentMethod: 'usdc' });
     } catch (verifyErr: any) {
       const errMsg = typeof verifyErr === 'object' ? (verifyErr.message || JSON.stringify(verifyErr)) : String(verifyErr);
       setStatus(

@@ -1,5 +1,8 @@
 import { Award, ShieldCheck, Coins, Sparkles, Zap } from 'lucide-react';
 import MoveMint from '../components/MoveMint';
+import CertificateGallery from '../components/CertificateGallery';
+import RoyaltyTracker from '../components/RoyaltyTracker';
+import { useMintedMoves } from '../hooks/useMintedMoves';
 
 function FeatureCard({ 
   icon: Icon, 
@@ -27,6 +30,8 @@ function FeatureCard({
 }
 
 export default function Index() {
+  const { moves, addMove } = useMintedMoves();
+
   return (
     <main className="min-h-screen bg-mesh text-foreground relative overflow-hidden">
       {/* Floating decorative elements */}
@@ -34,22 +39,18 @@ export default function Index() {
         <div className="absolute top-20 left-[10%] w-72 h-72 rounded-full bg-[hsl(var(--gradient-cyan))] opacity-[0.04] blur-3xl animate-float" />
         <div className="absolute top-40 right-[15%] w-96 h-96 rounded-full bg-[hsl(var(--gradient-magenta))] opacity-[0.03] blur-3xl animate-float-reverse" />
         <div className="absolute bottom-20 left-[30%] w-64 h-64 rounded-full bg-[hsl(var(--gradient-solana-purple))] opacity-[0.04] blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-        
-        {/* Subtle grid pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:60px_60px]" />
       </div>
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
         {/* Hero Section */}
         <header className="text-center mb-16 sm:mb-20">
-          {/* Badge */}
           <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground mb-8 opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}>
             <Zap className="w-3.5 h-3.5 text-[hsl(var(--gradient-solana-green))]" />
             <span>Powered by Solana + x402</span>
             <Sparkles className="w-3.5 h-3.5 text-[hsl(var(--gradient-cyan))]" />
           </div>
 
-          {/* Title with glow */}
           <div className="relative inline-block">
             <div className="absolute inset-0 blur-3xl bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] opacity-20 animate-glow-pulse scale-150" />
             <h1 className="relative text-5xl sm:text-7xl font-extrabold tracking-tight gradient-text opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
@@ -73,7 +74,17 @@ export default function Index() {
             </div>
             Mint Your Move
           </h2>
-          <MoveMint />
+          <MoveMint onMintSuccess={addMove} />
+        </section>
+
+        {/* Certificate Gallery + Royalty Tracker */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16 opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.7s', animationFillMode: 'forwards' }}>
+          <div className="lg:col-span-2">
+            <CertificateGallery moves={moves} />
+          </div>
+          <div>
+            <RoyaltyTracker />
+          </div>
         </section>
 
         {/* Feature Cards */}
