@@ -97,6 +97,24 @@ export const MOVE_REGISTRY_IDL = {
     { code: 6000, name: 'AlreadyVerified', msg: 'Skill already verified' },
     { code: 6001, name: 'NotVerified', msg: 'Skill not verified' },
   ],
+  types: [
+    {
+      name: 'SkillAccount',
+      type: {
+        kind: 'struct' as const,
+        fields: [
+          { name: 'creator', type: 'publicKey' },
+          { name: 'skillName', type: 'string' },
+          { name: 'expression', type: 'string' },
+          { name: 'timestamp', type: 'i64' },
+          { name: 'royaltyPercent', type: 'u8' },
+          { name: 'verified', type: 'bool' },
+          { name: 'mint', type: 'publicKey' },
+          { name: 'treasury', type: 'publicKey' },
+        ],
+      },
+    },
+  ],
 } as const;
 
 /**
