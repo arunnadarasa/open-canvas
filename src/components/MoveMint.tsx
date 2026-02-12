@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { usePrivy, useWallets, useConnectWallet } from '@privy-io/react-auth';
+import { usePrivy } from '@privy-io/react-auth';
 import { useSignTransaction } from '@privy-io/react-auth/solana';
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { Buffer } from 'buffer';
@@ -11,8 +11,6 @@ const PROGRAM_ID = new PublicKey(import.meta.env.VITE_PROGRAM_ID || 'Dp2JcVDt4se
 
 export default function MoveMint() {
   const { ready, authenticated, login, logout, user } = usePrivy()
-  const { wallets } = useWallets()
-  const { connectWallet } = useConnectWallet()
   const { signTransaction } = useSignTransaction()
   const [moveName, setMoveName] = useState('')
   const [videoHash, setVideoHash] = useState('')
@@ -21,24 +19,8 @@ export default function MoveMint() {
   const [txSignature, setTxSignature] = useState<string | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
 
-  const getWallet = useCallback(() => {
-    if (!wallets || wallets.length === 0) return null
-    // Filter for Solana wallets only - check chainType or address format
-    const solanaWallet = wallets.find((w: any) => {
-      const addr = w.address || w.walletClient?.address || ''
-      // Solana addresses are Base58 encoded (no 0x prefix, typically start with letters/numbers)
-      // Ethereum addresses start with 0x
-      return w.chainType === 'solana' || 
-             (addr && !addr.startsWith('0x') && addr.length >= 32 && addr.length <= 44)
-    })
-    return solanaWallet || null
-  }, [wallets])
-
-  // Check if connected wallet is Solana
-  const connectedWallet = getWallet()
-  const connectedAddress = connectedWallet 
-    ? (connectedWallet as any).address || (connectedWallet as any).walletClient?.address 
-    : null
+  // Get wallet address directly from Privy's authenticated user object
+  const connectedAddress = user?.wallet?.address || null
   const isEthereumWallet = connectedAddress && connectedAddress.startsWith('0x')
 
   const mintMove = useCallback(async () => {
@@ -54,12 +36,8 @@ export default function MoveMint() {
 
     try {
       setStatus('Preparing transaction...')
-      const wallet = getWallet()
-      if (!wallet) throw new Error('Wallet not available (no Solana wallet connected)')
-
-      // Get wallet address - Privy wallets expose address as a string
-      const walletAddress = (wallet as any).address || (wallet as any).walletClient?.address
-      if (!walletAddress) throw new Error('Could not get wallet address')
+      const walletAddress = user?.wallet?.address
+      if (!walletAddress) throw new Error('Wallet address not available. Please reconnect your wallet.')
       
       // Validate it's a Solana address (not Ethereum 0x format)
       if (walletAddress.startsWith('0x')) {
@@ -113,7 +91,7 @@ export default function MoveMint() {
       console.error('Mint error:', error)
       setStatus(`❌ Error: ${error.message || 'Unknown error'}`)
     }
-  }, [authenticated, moveName, videoHash, royalty, wallets, getWallet, signTransaction])
+  }, [authenticated, moveName, videoHash, royalty, user, signTransaction])
 
   return (
     <div>
