@@ -46,17 +46,21 @@ Deno.serve(async (req) => {
     console.log(`Response body (first 500): ${responseText.slice(0, 500)}`);
 
     // Try to parse as JSON, otherwise return as text
-    let responseBody: string;
+    let parsedBody: any;
     try {
-      const json = JSON.parse(responseText);
-      responseBody = JSON.stringify(json);
+      parsedBody = JSON.parse(responseText);
     } catch {
-      responseBody = JSON.stringify({ raw: responseText });
+      parsedBody = { raw: responseText };
     }
 
-    // Forward the status code from upstream
-    return new Response(responseBody, {
-      status: response.status,
+    // Always return 200 from the proxy — include upstream status so client can interpret
+    const wrappedResponse = {
+      upstreamStatus: response.status,
+      ...parsedBody,
+    };
+
+    return new Response(JSON.stringify(wrappedResponse), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
