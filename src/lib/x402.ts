@@ -15,11 +15,16 @@ export interface X402VerifiedResponse {
 }
 
 const DEFAULT_ENDPOINT = 'https://x402.payai.network/api/solana-devnet/paid-content';
+const CORS_PROXY = 'https://corsproxy.io/?url=';
+
+function proxyUrl(url: string): string {
+  return `${CORS_PROXY}${encodeURIComponent(url)}`;
+}
 
 export async function fetchX402Requirements(
   url: string = import.meta.env.VITE_X402_ENDPOINT || DEFAULT_ENDPOINT
 ): Promise<X402PaymentRequirement> {
-  const res = await fetch(url);
+  const res = await fetch(proxyUrl(url));
 
   if (res.status !== 402) {
     throw new Error(`Expected 402 response, got ${res.status}`);
@@ -52,7 +57,7 @@ export async function verifyX402Payment(
   txSignature: string,
   url: string = import.meta.env.VITE_X402_ENDPOINT || DEFAULT_ENDPOINT
 ): Promise<X402VerifiedResponse> {
-  const res = await fetch(url, {
+  const res = await fetch(proxyUrl(url), {
     headers: {
       'Payment-Signature': txSignature,
     },
