@@ -1,22 +1,30 @@
 
-## Fix Build Errors
 
-The app shows a blank page because the build is failing due to two issues:
+## Fix: "Wallet not available (no Solana wallet connected)"
 
-1. **`@types/buffer` does not exist on npm** -- This package (line 82 in package.json) causes `bun install` to fail entirely with a 404 error, which means NO dependencies get installed -- including Privy and Solana packages.
+### Problem
+The user is authenticated via Phantom Solana (address `UjxYKRD5ogZLPSASPPTDZt48gYLJgMG2Cw6Gm4fePa8`), but the `useWallets()` hook doesn't return a matching Solana wallet object. The `getWallet()` filtering logic fails, blocking minting.
 
-2. **Missing type declarations** -- Once install succeeds, `@privy-io/react-auth` and `@solana/web3.js` should resolve. If type errors persist, we can add type declaration shims.
+### Root Cause
+Privy's `useWallets()` may not populate for externally-connected Solana wallets the same way as embedded wallets. However, the authenticated `user` object already contains the wallet address at `user.wallet.address`.
 
-### Steps
+### Solution
+Simplify the wallet resolution in `MoveMint.tsx`:
 
-1. **Remove `@types/buffer` from devDependencies** -- The `buffer` package already includes its own types. This phantom package causes the entire install to fail.
-
-2. **Verify the build succeeds** -- After removing the bad dependency, all other packages (`@privy-io/react-auth`, `@solana/web3.js`, etc.) should install and resolve correctly.
-
-3. **Add environment variables** -- You'll need to set `VITE_PRIVY_APP_ID` with your actual Privy App ID. Since these are public/client-side keys (VITE_ prefix), they can be stored directly in the codebase or set as secrets. I'll need your Privy App ID to configure this.
+1. **Remove the `getWallet()` filtering logic** -- it's fragile and unnecessary
+2. **Get the wallet address directly from `user.wallet.address`** -- Privy already provides this on authentication
+3. **Use `signTransaction` with the address string** -- Privy's `signTransaction` only needs the address, not a wallet object
+4. **Remove the `useWallets` and `useConnectWallet` imports** -- no longer needed
 
 ### Technical Details
 
-- The root cause is `"@types/buffer": "^6.0.3"` in devDependencies -- this package doesn't exist on npm, causing the entire `bun install` to abort
-- Removing it fixes the cascading failure where none of the Solana/Privy packages get installed
-- No code changes needed beyond the package.json fix
+In `src/components/MoveMint.tsx`:
+
+- Remove `useWallets` and `useConnectWallet` imports and hooks
+- Remove the `getWallet` callback and related `connectedWallet`/`connectedAddress`/`isEthereumWallet` variables
+- In `mintMove`, get address from `user?.wallet?.address` instead of the wallet object
+- Keep the Ethereum address check (`startsWith('0x')`) as a safety guard
+- Keep all existing `signTransaction` logic (it already accepts `address` as a string)
+
+This is a minimal, targeted fix -- only the wallet resolution logic changes. The transaction building, signing, and UI remain the same.
+
