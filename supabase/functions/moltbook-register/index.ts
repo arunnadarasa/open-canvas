@@ -46,8 +46,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Register new agent on Moltbook
-    const agentName = `MR-${wallet_address.slice(0, 8)}`;
+    // Register new agent on Moltbook with unique name
+    const suffix = Date.now().toString(36).slice(-4);
+    const agentName = `MR-${wallet_address.slice(0, 6)}-${suffix}`;
 
     const registerRes = await fetch(`${MOLTBOOK_API}/agents/register`, {
       method: "POST",
@@ -58,15 +59,41 @@ Deno.serve(async (req) => {
       }),
     });
 
+    const registerText = await registerRes.text();
+    console.log("Moltbook register response:", registerRes.status, registerText);
+
     if (!registerRes.ok) {
-      const errText = await registerRes.text();
       return new Response(
-        JSON.stringify({ error: `Moltbook registration failed: ${errText}` }),
+        JSON.stringify({ error: `Moltbook registration failed: ${registerText}` }),
         { status: registerRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const registerData = await registerRes.json();
+    let registerData: Record<string, any>;
+    try {
+      registerData = JSON.parse(registerText);
+    } catch {
+      return new Response(
+        JSON.stringify({ error: `Invalid response from Moltbook: ${registerText}` }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Extract from nested agent object
+    const agent = registerData.agent || {};
+    const apiKey = agent.api_key || registerData.api_key || "";
+    const claimUrl = agent.claim_url || registerData.claim_url || "";
+
+    if (!apiKey) {
+      console.error("No api_key found in Moltbook response. Full response:", JSON.stringify(registerData));
+      return new Response(
+        JSON.stringify({
+          error: "Moltbook registration succeeded but no API key was returned",
+          debug_fields: Object.keys(registerData),
+        }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Store in database (api_key never returned to client)
     const { error: insertError } = await supabase
@@ -74,8 +101,8 @@ Deno.serve(async (req) => {
       .insert({
         wallet_address,
         agent_name: agentName,
-        api_key: registerData.api_key,
-        claim_url: registerData.claim_url,
+        api_key: apiKey,
+        claim_url: claimUrl || null,
       });
 
     if (insertError) {
@@ -89,7 +116,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         agent_name: agentName,
-        claim_url: registerData.claim_url,
+        claim_url: claimUrl,
         claimed: false,
         already_registered: false,
       }),
