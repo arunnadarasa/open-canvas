@@ -1,32 +1,40 @@
 
+# Add Optional Video Hash Field
 
-# Add Example DSL Snippets to Expression Field
-
-Add clickable example buttons below the Expression/Choreography DSL textarea so users can quickly populate the field with valid DSL to test the app.
+Add a separate, optional "Video Hash" input field to the minting form for users who want to attach an IPFS video CID alongside their Expression/DSL.
 
 ---
 
 ## What You'll See
 
-Below the DSL text area, a row of small clickable example buttons will appear. Clicking one fills the textarea with that example, making it easy to try the app without memorizing the syntax.
-
----
-
-## Examples to Include
-
-1. **Sentiment Split** -- `dance:chest_pop if sentiment > 0.8` / `dance:wave if sentiment <= 0.8` / `dance:idle otherwise`
-2. **Proximity React** -- `dance:wave if proximity < 2.0` / `dance:bow if proximity >= 2.0` / `dance:idle otherwise`
-3. **Energy Burst** -- `dance:chest_pop if energy > 0.7` / `dance:sway if energy <= 0.7` / `dance:idle otherwise`
-4. **Plain IPFS CID** -- `QmExampleCID1234567890abcdef`
+A new text input labeled "Video Hash (optional)" will appear between the Expression/DSL textarea and the Royalty slider. It will accept an IPFS CID or video reference link. The existing Expression field remains required and unchanged.
 
 ---
 
 ## Technical Details
 
 **`src/components/MoveMint.tsx`**
-- Define an array of example objects (`label` + `value`) above the component or inside it
-- Below the textarea (before the DSL detection messages), render a row of small pill buttons styled with `text-xs glass rounded-full px-2 py-1 cursor-pointer hover:bg-white/10`
-- Each button, on click, calls `setVideoHash(example.value)` to populate the textarea
-- Label the row with a small "Try an example:" prefix text
+- Add new state: `const [videoHashCid, setVideoHashCid] = useState('')`
+- Add a new input field after the Expression/DSL section (after line ~433, before the Royalty slider) with:
+  - Label: "Video Hash (optional)"
+  - Placeholder: e.g. `QmXyz... or IPFS video CID`
+  - Styled consistently with the Move Name input
+  - Not required
+- When minting, pass `videoHashCid` alongside `videoHash` in the metadata call and `onMintSuccess` callback
 
-No new files or dependencies needed.
+**`supabase/functions/nft-metadata/index.ts`**
+- Accept optional `videoHashCid` from the request body
+- If provided, add it as an additional attribute: `{ trait_type: "Video CID", value: videoHashCid }`
+- Include it in the SKILL.md output under a "Video" section
+
+**`src/hooks/useMintedMoves.ts`**
+- Add `videoHashCid` to the `MintedMove` type (optional field)
+- Map it from/to a new `video_hash_cid` column if stored in DB
+
+**Database migration**
+- Add nullable `video_hash_cid TEXT` column to the `minted_moves` table
+
+**`src/components/NFTCertificate.tsx`**
+- Display "Video CID" if present in the move data
+
+No new dependencies needed.
