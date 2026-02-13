@@ -48,10 +48,21 @@ export default function Index() {
   const [moltbookRegistered, setMoltbookRegistered] = useState(
     () => localStorage.getItem('moltbook_registered') === 'true'
   );
+  const [moltbookChecking, setMoltbookChecking] = useState(
+    () => !localStorage.getItem('moltbook_registered') && !!walletAddress
+  );
 
   // Auto-detect existing Moltbook registration from DB
   useEffect(() => {
-    if (!walletAddress || localStorage.getItem('moltbook_registered') === 'true') return;
+    if (!walletAddress) {
+      setMoltbookChecking(false);
+      return;
+    }
+    if (localStorage.getItem('moltbook_registered') === 'true') {
+      setMoltbookChecking(false);
+      return;
+    }
+    setMoltbookChecking(true);
     import('@/integrations/supabase/client').then(({ supabase }) => {
       supabase
         .from('moltbook_agents_public')
@@ -63,6 +74,7 @@ export default function Index() {
             localStorage.setItem('moltbook_registered', 'true');
             setMoltbookRegistered(true);
           }
+          setMoltbookChecking(false);
         });
     });
   }, [walletAddress]);
@@ -146,7 +158,7 @@ export default function Index() {
           )}
           {worldIdVerified && clawKeyVerified && (
             <div className="space-y-4">
-              {!moltbookRegistered && (
+              {!moltbookRegistered && !moltbookChecking && (
                 <MoltbookConnect
                   walletAddress={walletAddress || null}
                   onRegistered={() => {
