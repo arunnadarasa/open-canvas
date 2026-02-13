@@ -98,7 +98,7 @@ export default function Index() {
 
         {/* Mint Section */}
         <section className="glass-strong rounded-2xl p-6 sm:p-8 gradient-border mb-16 opacity-0 animate-slide-up-fade" style={{ animationDelay: '0.6s', animationFillMode: 'forwards' }}>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
@@ -107,7 +107,7 @@ export default function Index() {
             </h2>
           {worldIdVerified && <WorldIDVerify isVerified={true} onVerified={() => {}} />}
           </div>
-          <div className="glass rounded-xl p-4 mb-4 flex items-start gap-3 text-sm text-muted-foreground">
+          <div className="glass rounded-xl p-3 sm:p-4 mb-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
             <Wallet className="w-5 h-5 shrink-0 mt-0.5 text-primary/60" />
             <div>
               <p>To mint on devnet, enable <strong className="text-foreground">Testnet Mode</strong> in Phantom (Settings → Developer Settings) and ensure you have at least <strong className="text-foreground">0.1 SOL</strong>.</p>
