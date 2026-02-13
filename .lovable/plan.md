@@ -1,56 +1,34 @@
 
 
-# Fix Moltbook Claim Link Not Showing
+# Simplify Moltbook Flow: Skip Claim Tracking
 
-## Root Cause
+## Problem
 
-Two bugs in `MoltbookConnect.tsx`:
+The Moltbook API has no webhook to notify us when a user claims their agent. So the `claimed` flag in our database stays `false` forever unless manually updated. This creates a broken UX where the "Claim on Moltbook" card keeps showing even after the user has already claimed.
 
-1. **Race condition**: `fetchingStatus` initializes to `false`, so the badge-mode check (`isVerified && !claimUrl && !fetchingStatus`) immediately returns the pill badge on first render -- before the `useEffect` has a chance to fire and fetch data.
+## Simpler Approach
 
-2. **Missing wallet address**: The user's screenshot shows "Connect Wallet" is still visible, meaning `walletAddress` from Privy may be `null`. The `useEffect` has an early return when `walletAddress` is null, so it never fetches claim status.
+Stop tracking `claimed` status entirely. Once an agent is **registered**, that's sufficient -- show the "Moltbook Agent" badge immediately, with a link to the user's Moltbook profile page for managing their agent/API key.
 
-## Fix
+## Changes
 
 ### `src/components/MoltbookConnect.tsx`
 
-1. Initialize `fetchingStatus` to `true` when `isVerified` is passed -- this prevents the pill badge from flashing before the fetch completes.
+1. Remove the `claimed` state and all logic that depends on it
+2. When `isVerified` is true and a record exists in `moltbook_agents_public`, show the badge immediately
+3. Add a small "Manage" link on the badge that opens the user's Moltbook agent profile (e.g., `https://moltbook.com/u/{agent_name}`)
+4. When `isVerified` is true but no record exists, fall through to the "Join Moltbook" registration card as before
+5. After successful registration, show a one-time confirmation with the claim URL (for first-time setup), then badge on subsequent visits
 
-2. Handle the case where `walletAddress` is null but `isVerified` is true: show a "Connect wallet to see your claim link" message instead of the pill badge. Or better yet, try to look up by localStorage-stored wallet address.
+### Rendering Logic (simplified)
 
-3. Reorder the rendering logic so the component only shows the pill badge when we have **confirmed** the agent is claimed (not as a default fallback).
-
-### Specific code changes
-
-**Line 17** -- Change initialization:
-```typescript
-const [fetchingStatus, setFetchingStatus] = useState(!!isVerified);
+```text
+isVerified + record found --> Badge with "Manage" link
+isVerified + no record    --> "Join Moltbook" registration card
+!isVerified               --> "Join Moltbook" registration card
 ```
 
-**useEffect** -- When walletAddress is null, set fetchingStatus to false so we don't show loading forever. The pill badge will render, which is correct when we genuinely can't look up status.
+### No Database Changes Needed
 
-**Badge-mode condition** -- Change from showing pill when "no claimUrl and not fetching" to showing pill only when "confirmed claimed":
-```typescript
-// Show pill badge only if confirmed claimed
-if (isVerified && claimed && !fetchingStatus) {
-  return <pill badge />;
-}
-
-// Show claim card if registered but unclaimed  
-if (isVerified && claimUrl && !claimed && !fetchingStatus) {
-  return <claim card with link />;
-}
-```
-
-This ensures:
-- While fetching: shows loading spinner
-- After fetch, unclaimed: shows the full claim card with link
-- After fetch, claimed: shows the small pill badge
-- No wallet address: falls through to "connect wallet" or registration UI
-
-### Files to change
-
-| File | Change |
-|------|--------|
-| `src/components/MoltbookConnect.tsx` | Fix fetchingStatus initialization and badge-mode logic |
+The existing `moltbook_agents_public` view already exposes `agent_name` and `wallet_address`, which is all we need. The `claimed` column becomes unused but harmless.
 
