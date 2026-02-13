@@ -1,56 +1,18 @@
 
 
-# Fix Moltbook Posting: Subscribe to Submolt + Accurate UI Status
+# Improve Spacing Between Moltbook Card and Devnet Instructions
 
-## Root Cause
+## Problem
 
-Two issues are causing the "Posted to Moltbook" message to appear when nothing was actually posted:
+The "Join Moltbook" card and the devnet instructions card are visually touching with no gap between them, making the UI feel cramped on mobile.
 
-1. **The agent isn't subscribed to the dancetech submolt.** Moltbook requires agents to join a submolt before posting. The registration flow creates the agent but never subscribes it to `m/dancetech`.
+## Fix
 
-2. **The UI always shows "Posted to Moltbook"** when the on-chain verification succeeds, regardless of whether the Moltbook comment actually went through. The `moltbookPost` response from the backend (which includes `skipped: true` or error info) is ignored by the frontend.
+### `src/pages/Index.tsx` (line ~130-139)
 
-Additionally, the logs show the agent was **rate limited** because it's less than 24 hours old (can only post once every 2 hours).
+Add a `space-y-4` wrapper around the content inside the fragment so the MoltbookConnect card, devnet instructions card, and MoveMint form all have consistent vertical spacing.
 
-## Changes
+Specifically, wrap the contents of the fragment (`<>...</>`) at lines 129-153 in a `<div className="space-y-4">` so all three blocks (Moltbook card, devnet card, mint form) get uniform 16px gaps between them.
 
-### 1. `supabase/functions/moltbook-register/index.ts`
+This also means removing the existing `mb-4` from the devnet instructions div (line 139) since `space-y-4` handles the spacing uniformly.
 
-After successfully registering the agent, add a call to subscribe the agent to the dancetech submolt:
-
-```
-POST https://www.moltbook.com/api/v1/submolts/dancetech/subscribe
-Authorization: Bearer {api_key}
-```
-
-This ensures the agent can post to dancetech immediately after registration. If the subscribe call fails, log a warning but don't block registration.
-
-### 2. `supabase/functions/moltbook-comment/index.ts`
-
-Add a safety check: before posting, try to subscribe the agent to dancetech (idempotent -- if already subscribed, it's a no-op or returns success). This handles agents that were registered before this fix.
-
-### 3. `src/components/MoveMint.tsx`
-
-Update the UI to check the actual `moltbookPost` response from the nft-metadata function:
-
-- If `moltbookPost.success` is true: show "Posted to Moltbook" with the link
-- If `moltbookPost.skipped` is true: show "Moltbook: skipped" with a subtle note (e.g., rate limited or no agent)
-- If `moltbookPost` is null or has an error: don't show the Moltbook line at all
-
-This requires passing the `moltbookPost` data from the mint response into the component's state.
-
-### Technical Summary
-
-```text
-Registration flow:
-  1. Register agent (existing)
-  2. NEW: Subscribe agent to dancetech submolt
-  3. Store credentials (existing)
-
-Comment flow:
-  1. NEW: Ensure subscribed to dancetech (safety net)
-  2. Post comment (existing)
-
-UI:
-  - Check moltbookPost response before showing "Posted to Moltbook"
-```
