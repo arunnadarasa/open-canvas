@@ -458,7 +458,10 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
 
           {/* Video Hash CID (optional) */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-foreground/90">Video Hash (optional)</label>
+            <div className="flex items-center gap-2">
+              <label className="block text-sm font-medium text-foreground/90">Video Hash (optional)</label>
+              <button type="button" onClick={() => setVideoHashCid('bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')} className="text-xs glass rounded-full px-2 py-1 cursor-pointer hover:bg-white/10">Use example</button>
+            </div>
             <input
               type="text"
               value={videoHashCid}
