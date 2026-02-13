@@ -105,7 +105,16 @@ export default function Index() {
               </div>
               Mint Your Move
             </h2>
-            {worldIdVerified && <WorldIDVerify isVerified={true} onVerified={() => {}} />}
+          {worldIdVerified && <WorldIDVerify isVerified={true} onVerified={() => {}} />}
+          </div>
+          <div className="glass rounded-xl p-4 mb-4 flex items-start gap-3 text-sm text-muted-foreground">
+            <Wallet className="w-5 h-5 shrink-0 mt-0.5 text-primary/60" />
+            <div>
+              <p>To mint on devnet, enable <strong className="text-foreground">Testnet Mode</strong> in Phantom (Settings → Developer Settings) and ensure you have at least <strong className="text-foreground">0.1 SOL</strong>.</p>
+              <a href="https://faucet.solana.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-primary hover:text-primary/80 transition-colors underline underline-offset-4">
+                Get free devnet SOL <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
           {!worldIdVerified && (
             <WorldIDVerify isVerified={false} onVerified={() => setWorldIdVerified(true)} />
