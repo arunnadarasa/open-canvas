@@ -128,12 +128,12 @@ export default function ClawKeyRegister({ walletAddress, onVerified, isVerified 
 
   // Gate card (matching WorldIDVerify style)
   return (
-    <div className="glass-strong rounded-2xl p-6 sm:p-8 text-center space-y-5">
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))]">
-        <Fingerprint className="w-8 h-8 text-white" />
+    <div className="glass-strong rounded-2xl p-6 sm:p-8 lg:p-6 text-center lg:text-left space-y-5 lg:space-y-4">
+      <div className="inline-flex items-center justify-center lg:justify-start w-16 h-16 lg:w-12 lg:h-12 rounded-2xl lg:rounded-xl bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))]">
+        <Fingerprint className="w-8 h-8 lg:w-5 lg:h-5 text-white" />
       </div>
-      <h3 className="text-xl font-bold">Register Your Claw Agent</h3>
-      <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+      <h3 className="text-xl lg:text-lg font-bold">Register Your Claw Agent</h3>
+      <p className="text-sm text-muted-foreground max-w-sm mx-auto lg:mx-0">
         Prove human ownership of your AI agent via ClawKey's VeryAI palm verification before minting.
       </p>
 
