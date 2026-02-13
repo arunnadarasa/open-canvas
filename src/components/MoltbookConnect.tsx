@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Users, ExternalLink, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { z } from 'zod';
+
+const nameSchema = z.string().min(3, 'At least 3 characters').max(30, 'Max 30 characters').regex(/^[a-zA-Z0-9_-]+$/, 'Only letters, numbers, hyphens, underscores');
+const bioSchema = z.string().max(200, 'Max 200 characters').optional();
 
 interface MoltbookConnectProps {
   walletAddress: string | null;
@@ -16,6 +24,10 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
   const [registered, setRegistered] = useState(false);
   const [fetchingStatus, setFetchingStatus] = useState(!!isVerified);
   const [justRegistered, setJustRegistered] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [inputName, setInputName] = useState('');
+  const [inputBio, setInputBio] = useState('');
+  const [nameError, setNameError] = useState('');
 
   // Check localStorage for claimed state
   useEffect(() => {
@@ -132,12 +144,30 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
   // Registration card
   const handleRegister = async () => {
     if (!walletAddress) return;
+
+    // Validate name
+    const nameResult = nameSchema.safeParse(inputName);
+    if (!nameResult.success) {
+      setNameError(nameResult.error.errors[0].message);
+      return;
+    }
+    const bioResult = bioSchema.safeParse(inputBio || undefined);
+    if (!bioResult.success) {
+      setNameError(bioResult.error.errors[0].message);
+      return;
+    }
+
+    setNameError('');
     setLoading(true);
     setError('');
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('moltbook-register', {
-        body: { wallet_address: walletAddress },
+        body: {
+          wallet_address: walletAddress,
+          agent_name: inputName.trim(),
+          description: inputBio.trim() || undefined,
+        },
       });
 
       if (fnError) throw new Error(fnError.message);
@@ -148,6 +178,7 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
       setRegistered(true);
       const alreadyClaimed = walletAddress && localStorage.getItem(`moltbook_claimed_${walletAddress}`);
       setJustRegistered(!alreadyClaimed);
+      setModalOpen(false);
       onRegistered?.();
     } catch (err: any) {
       setError(err.message || 'Registration failed');
@@ -176,13 +207,61 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
       </p>
       {error && <p className="text-xs text-destructive">{error}</p>}
       <button
-        onClick={handleRegister}
-        disabled={loading || !walletAddress}
+        onClick={() => setModalOpen(true)}
+        disabled={!walletAddress}
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.4)] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
       >
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-        {loading ? 'Registering...' : 'Join Moltbook'}
+        <Users className="w-4 h-4" />
+        Join Moltbook
       </button>
+
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="glass-strong border-white/10 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Your Agent</DialogTitle>
+            <DialogDescription>Choose a name and optional bio for your Moltbook agent.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="agent-name">Agent Name *</Label>
+              <Input
+                id="agent-name"
+                placeholder="e.g., KrumpKing, PopLockPro"
+                value={inputName}
+                onChange={(e) => { setInputName(e.target.value); setNameError(''); }}
+                maxLength={30}
+                className="bg-background/50"
+              />
+              <p className="text-xs text-muted-foreground">Letters, numbers, hyphens & underscores. 3-30 chars.</p>
+              {nameError && <p className="text-xs text-destructive">{nameError}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="agent-bio">Short Bio</Label>
+              <Textarea
+                id="agent-bio"
+                placeholder="A brief description of your dance agent's persona..."
+                value={inputBio}
+                onChange={(e) => setInputBio(e.target.value.slice(0, 200))}
+                maxLength={200}
+                rows={3}
+                className="bg-background/50 resize-none"
+              />
+              <p className="text-xs text-muted-foreground text-right">{inputBio.length}/200</p>
+            </div>
+            {error && <p className="text-xs text-destructive">{error}</p>}
+          </div>
+          <DialogFooter>
+            <button
+              onClick={handleRegister}
+              disabled={loading || !inputName.trim()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.4)] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+              {loading ? 'Registering...' : 'Register'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
