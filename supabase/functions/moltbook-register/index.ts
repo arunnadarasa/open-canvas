@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { wallet_address } = await req.json();
+    const { wallet_address, agent_name, description } = await req.json();
 
     if (!wallet_address) {
       return new Response(
@@ -46,16 +46,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Register new agent on Moltbook with unique name
-    const suffix = Date.now().toString(36).slice(-4);
-    const agentName = `MR-${wallet_address.slice(0, 6)}-${suffix}`;
+    // Determine agent name and description
+    let finalName = agent_name?.trim();
+    if (finalName) {
+      // Server-side validation
+      if (finalName.length < 3 || finalName.length > 30 || !/^[a-zA-Z0-9_-]+$/.test(finalName)) {
+        return new Response(
+          JSON.stringify({ error: "Agent name must be 3-30 chars, alphanumeric/hyphens/underscores only" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      const suffix = Date.now().toString(36).slice(-4);
+      finalName = `MR-${wallet_address.slice(0, 6)}-${suffix}`;
+    }
+
+    const finalDesc = description?.trim()?.slice(0, 200) ||
+      `MoveRegistry dance skill creator (wallet: ${wallet_address.slice(0, 8)}...). Human-verified via World ID + ClawKey.`;
 
     const registerRes = await fetch(`${MOLTBOOK_API}/agents/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: agentName,
-        description: `MoveRegistry dance skill creator (wallet: ${wallet_address.slice(0, 8)}...). Human-verified via World ID + ClawKey.`,
+        name: finalName,
+        description: finalDesc,
       }),
     });
 
@@ -118,7 +132,7 @@ Deno.serve(async (req) => {
       .from("moltbook_agents")
       .insert({
         wallet_address,
-        agent_name: agentName,
+        agent_name: finalName,
         api_key: apiKey,
         claim_url: claimUrl || null,
       });
@@ -133,7 +147,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        agent_name: agentName,
+        agent_name: finalName,
         claim_url: claimUrl,
         claimed: false,
         already_registered: false,
