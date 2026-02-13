@@ -167,7 +167,7 @@ export default function Index() {
                   <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => setClawKeyVerified(true)} isVerified={false} />
                 )}
                 {worldIdVerified && clawKeyVerified && !moltbookRegistered && !moltbookChecking && (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <MoltbookConnect
                       walletAddress={walletAddress || null}
                       onRegistered={() => {
@@ -175,16 +175,18 @@ export default function Index() {
                         localStorage.setItem('moltbook_registered', 'true');
                       }}
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        localStorage.setItem('moltbook_registered', 'true');
-                        setMoltbookRegistered(true);
-                      }}
-                      className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
-                    >
-                      Skip for demo (hackathon judges)
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          localStorage.setItem('moltbook_registered', 'true');
+                          setMoltbookRegistered(true);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
+                      >
+                        Skip for demo (hackathon judges)
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

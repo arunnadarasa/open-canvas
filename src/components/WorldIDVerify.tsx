@@ -78,27 +78,28 @@ export default function WorldIDVerify({ onVerified, isVerified }: WorldIDVerifyP
           onSuccess={() => {}}
         >
           {({ open }) => (
-            <button
-              onClick={open}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.5)] transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
-            >
-              <ShieldCheck className="w-5 h-5" />
-              Verify with World ID
-            </button>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <button
+                onClick={open}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.5)] transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
+              >
+                <ShieldCheck className="w-5 h-5" />
+                Verify with World ID
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem('worldid_verified', 'true');
+                  onVerified();
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
+              >
+                Skip for demo (hackathon judges)
+              </button>
+            </div>
           )}
         </IDKitWidget>
       )}
-
-      <button
-        type="button"
-        onClick={() => {
-          localStorage.setItem('worldid_verified', 'true');
-          onVerified();
-        }}
-        className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer mt-2"
-      >
-        Skip for demo (hackathon judges)
-      </button>
 
       {error && (
         <p className="text-sm text-destructive">{error}</p>
