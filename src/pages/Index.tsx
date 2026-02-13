@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink, MessageCircleQuestion, Map } from 'lucide-react';
+import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink, MessageCircleQuestion, Map, Fingerprint } from 'lucide-react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { usePrivy } from '@privy-io/react-auth';
 import MoveMint from '../components/MoveMint';
 import CertificateGallery from '../components/CertificateGallery';
 import RoyaltyTracker from '../components/RoyaltyTracker';
 import WorldIDVerify from '../components/WorldIDVerify';
+import ClawKeyRegister from '../components/ClawKeyRegister';
 import { useMintedMoves } from '../hooks/useMintedMoves';
 
 function FeatureCard({ 
@@ -124,6 +125,7 @@ export default function Index() {
             <WorldIDVerify isVerified={false} onVerified={() => setWorldIdVerified(true)} />
           )}
           <MoveMint onMintSuccess={addMove} isWorldIDVerified={worldIdVerified} />
+          <ClawKeyRegister walletAddress={walletAddress || null} />
         </section>
 
         {/* Certificate Gallery + Royalty Tracker */}
@@ -178,6 +180,7 @@ export default function Index() {
               { icon: Globe, name: 'World ID', desc: 'Proof-of-personhood verification', url: 'https://worldcoin.org/world-id' },
               { icon: Shield, name: 'x402', desc: 'Micropayment-gated skill verification', url: 'https://www.x402.org' },
               { icon: Zap, name: 'Lovable Cloud', desc: 'Backend functions & data storage', url: 'https://lovable.dev' },
+              { icon: Fingerprint, name: 'ClawKey', desc: 'Verifiable human ownership for AI agents', url: 'https://clawkey.ai' },
               { icon: Component, name: 'shadcn/ui', desc: 'Accessible UI component library', url: 'https://ui.shadcn.com' },
             ].map((tech, i) => (
               <a
