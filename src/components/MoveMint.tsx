@@ -401,6 +401,25 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
               rows={3}
               className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all font-mono text-sm resize-y"
             />
+            {/* Example DSL snippets */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground/60">Try an example:</span>
+              {[
+                { label: 'Sentiment Split', value: 'dance:chest_pop if sentiment > 0.8\ndance:wave if sentiment <= 0.8\ndance:idle otherwise' },
+                { label: 'Proximity React', value: 'dance:wave if proximity < 2.0\ndance:bow if proximity >= 2.0\ndance:idle otherwise' },
+                { label: 'Energy Burst', value: 'dance:chest_pop if energy > 0.7\ndance:sway if energy <= 0.7\ndance:idle otherwise' },
+                { label: 'Plain IPFS CID', value: 'QmExampleCID1234567890abcdef' },
+              ].map((ex) => (
+                <button
+                  key={ex.label}
+                  type="button"
+                  onClick={() => setVideoHash(ex.value)}
+                  className="text-xs glass rounded-full px-2 py-1 cursor-pointer hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {ex.label}
+                </button>
+              ))}
+            </div>
             {isDSL(videoHash) && (
               <p className="text-xs text-primary/80">✓ Conditional DSL detected — conditions will be embedded in skill.json</p>
             )}
