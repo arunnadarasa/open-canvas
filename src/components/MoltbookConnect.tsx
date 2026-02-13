@@ -14,12 +14,16 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
   const [agentName, setAgentName] = useState('');
   const [claimUrl, setClaimUrl] = useState('');
   const [registered, setRegistered] = useState(isVerified || false);
-  const [fetchingStatus, setFetchingStatus] = useState(false);
+  const [fetchingStatus, setFetchingStatus] = useState(!!isVerified);
   const [claimed, setClaimed] = useState(false);
 
   // Fetch claim status when in badge mode
   useEffect(() => {
-    if (!isVerified || !walletAddress) return;
+    if (!isVerified) return;
+    if (!walletAddress) {
+      setFetchingStatus(false);
+      return;
+    }
     setFetchingStatus(true);
     supabase
       .from('moltbook_agents_public' as any)
@@ -37,13 +41,53 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
       });
   }, [isVerified, walletAddress]);
 
-  // Badge mode — only show pill if claimed
-  if (isVerified && !claimUrl && !fetchingStatus) {
+  // Badge mode — only show pill if confirmed claimed
+  if (isVerified && claimed && !fetchingStatus) {
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass text-xs font-medium text-primary">
         <Users className="w-3.5 h-3.5" />
         Moltbook Agent
       </span>
+    );
+  }
+
+  // Show claim card if registered but unclaimed
+  if (isVerified && claimUrl && !claimed && !fetchingStatus) {
+    return (
+      <div className="glass-strong rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] flex items-center justify-center">
+            <Users className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-sm">Moltbook Agent Registered</h3>
+            <p className="text-xs text-muted-foreground font-mono">{agentName}</p>
+          </div>
+          <CheckCircle2 className="w-5 h-5 text-primary ml-auto" />
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Visit Moltbook to claim your agent and manage your API key.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={claimUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Claim on Moltbook
+          </a>
+          <a
+            href="https://www.moltbook.com/m/dancetech"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-white/10 hover:bg-white/5 transition-colors"
+          >
+            View dancetech
+          </a>
+        </div>
+      </div>
     );
   }
 
