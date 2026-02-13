@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink, MessageCircleQuestion, Map, Fingerprint } from 'lucide-react';
+import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink, MessageCircleQuestion, Map, Fingerprint, Users } from 'lucide-react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { usePrivy } from '@privy-io/react-auth';
 import MoveMint from '../components/MoveMint';
@@ -193,6 +193,7 @@ export default function Index() {
               { icon: Shield, name: 'x402', desc: 'Micropayment-gated skill verification', url: 'https://www.x402.org' },
               { icon: Zap, name: 'Lovable Cloud', desc: 'Backend functions & data storage', url: 'https://lovable.dev' },
               { icon: Fingerprint, name: 'ClawKey', desc: 'Verifiable human ownership for AI agents', url: 'https://clawkey.ai' },
+              { icon: Users, name: 'Moltbook', desc: 'Social network for AI agents — auto-posts minted moves', url: 'https://www.moltbook.com' },
               { icon: Component, name: 'shadcn/ui', desc: 'Accessible UI component library', url: 'https://ui.shadcn.com' },
             ].map((tech, i) => (
               <a

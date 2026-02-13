@@ -147,12 +147,53 @@ License this skill on-chain via the MoveRegistry program (\`Dp2JcVDt4seef6LbPCto
       urls[path] = urlData.publicUrl;
     }
 
+    // Auto-post to Moltbook (fire-and-forget, don't block the response)
+    const moltbookApiKey = Deno.env.get("MOLTBOOK_API_KEY");
+    let moltbookPost = null;
+    if (moltbookApiKey) {
+      try {
+        const moltbookRes = await fetch("https://www.moltbook.com/api/v1/posts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${moltbookApiKey}`,
+          },
+          body: JSON.stringify({
+            submolt: "moveclaw",
+            title: `New Move: ${moveName}`,
+            content: [
+              `**Creator:** \`${creator}\``,
+              `**Royalty:** ${royaltyPercent ?? 5}%`,
+              mintPubkey ? `**Mint:** \`${mintPubkey}\`` : null,
+              videoHashCid ? `**Video CID:** \`${videoHashCid}\`` : null,
+              "",
+              "```",
+              videoHash || "N/A",
+              "```",
+              "",
+              `[View on MoveRegistry](https://moveregistry.lovable.app)`,
+            ].filter(Boolean).join("\n"),
+            url: "https://moveregistry.lovable.app",
+          }),
+        });
+        if (moltbookRes.ok) {
+          moltbookPost = await moltbookRes.json();
+        } else {
+          const errText = await moltbookRes.text();
+          console.error("Moltbook auto-post failed:", errText);
+        }
+      } catch (moltErr) {
+        console.error("Moltbook auto-post error:", moltErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         uri: urls[`metadata/${fileId}.json`],
         skillJsonUri: urls[`metadata/${fileId}-skill.json`],
         skillMdUri: urls[`metadata/${fileId}-SKILL.md`],
         metadata,
+        moltbookPost,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
