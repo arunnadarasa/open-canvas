@@ -1,33 +1,76 @@
 
 
-# Fix Greyed-Out Moltbook Button
+# Improve Desktop UX for Mint Section
 
 ## Problem
 
-The "Join Moltbook" button is disabled because it checks `disabled={!walletAddress}`, but the wallet isn't connected yet -- Moltbook is now a gate **before** the wallet connect step. This creates a deadlock: can't register without a wallet, can't connect a wallet without registering.
+On desktop, the verification gates (World ID, ClawKey, Moltbook) display as large, centered cards inside the full-width "Mint Your Move" section, leaving excessive whitespace and making the experience feel sparse. Each gate occupies the entire section with minimal content.
 
-## Solution
+## Changes
 
-Remove the wallet address requirement from Moltbook registration at this stage. The registration will work with just the agent name and bio. The wallet address will be associated later (after the user connects their wallet and mints).
+### 1. Add a Step Progress Indicator
 
-### Changes
+Show all three gates as a horizontal progress bar at the top of the mint section so desktop users can see where they are in the flow:
 
-**`src/components/MoltbookConnect.tsx`**
-- Remove `disabled={!walletAddress}` from the "Join Moltbook" button so it's always clickable
-- Update `handleRegister` to not require `walletAddress` -- send it if available, skip if not
-- Remove the early return `if (!walletAddress) return;` from `handleRegister`
+```
+[1. World ID] ----> [2. ClawKey] ----> [3. Moltbook] ----> [4. Mint]
+     (done)           (current)          (locked)          (locked)
+```
 
-**`supabase/functions/moltbook-register/index.ts`**
-- Make `wallet_address` optional in the request body (it was required before)
-- If no wallet address is provided, generate a temporary placeholder or skip the DB wallet association
-- Still register the agent on Moltbook API (which only needs name + description)
-- Store the record with a null/empty wallet address, to be updated later
+- Completed steps show a checkmark with a green accent
+- Current step is highlighted with the gradient accent
+- Future steps are dimmed/locked
+- On mobile, this collapses to a compact "Step 2 of 4" indicator
 
-### Flow After Fix
+### 2. Two-Column Layout for Gate Cards (desktop only)
 
-1. User completes WorldID and ClawKey gates
-2. Moltbook card appears with an active "Join Moltbook" button
-3. User clicks it, enters name + bio, registers (no wallet needed)
-4. Gate passes, wallet connect + minting form appears
-5. "Skip for demo" button also remains available as before
+On screens >= `lg`, render the active gate card alongside context information:
+
+- **Left column (60%)**: The active verification widget (World ID / ClawKey / Moltbook form)
+- **Right column (40%)**: A brief "What's next" summary showing upcoming steps, or helpful context like "Why do we verify?" tips
+
+This eliminates the centered-card-in-a-huge-box problem.
+
+### 3. Compact Gate Card Styling
+
+Reduce padding and vertical spacing on the individual gate cards for desktop:
+- Smaller icon (48px -> 40px)
+- Tighter spacing between elements
+- Left-align text instead of center on desktop (keep centered on mobile)
+
+## Files Modified
+
+### `src/pages/Index.tsx`
+- Add a `StepIndicator` component showing the 4-step flow (World ID, ClawKey, Moltbook, Mint)
+- Wrap gate content in a `lg:grid lg:grid-cols-5 lg:gap-8` layout
+- Active gate card in `lg:col-span-3`, context panel in `lg:col-span-2`
+- Add a small "WhatsNext" info panel showing remaining steps
+
+### `src/components/WorldIDVerify.tsx`
+- Add `sm:text-left` alignment for desktop
+- Reduce icon size and padding on larger screens
+
+### `src/components/ClawKeyRegister.tsx`
+- Same left-alignment and compact spacing adjustments
+
+### `src/components/MoltbookConnect.tsx`
+- Same left-alignment adjustments (the modal is already good)
+
+### `src/index.css` (if needed)
+- Add any utility styles for the step indicator connecting lines
+
+## Step Indicator Detail
+
+```text
+Desktop: horizontal bar with icons + labels + connecting lines
+Mobile:  "Step 2 of 4 - ClawKey Verification" single line
+
+Steps:
+1. Personhood  (World ID)
+2. ClawKey     (Agent identity)
+3. Moltbook    (Social feed)
+4. Mint        (Create your NFT)
+```
+
+Each step node shows: icon, label, and status (completed/active/locked). Completed steps have a subtle animated checkmark. The active step pulses gently.
 
