@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink, MessageCircleQuestion, Map, Fingerprint, Users } from 'lucide-react';
+import MoltbookConnect from '../components/MoltbookConnect';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { usePrivy } from '@privy-io/react-auth';
 import MoveMint from '../components/MoveMint';
@@ -43,6 +44,9 @@ export default function Index() {
   );
   const [clawKeyVerified, setClawKeyVerified] = useState(
     () => localStorage.getItem('clawkey_verified') === 'true'
+  );
+  const [moltbookRegistered, setMoltbookRegistered] = useState(
+    () => localStorage.getItem('moltbook_registered') === 'true'
   );
   return (
     <main className="min-h-screen bg-mesh text-foreground relative overflow-hidden">
@@ -112,6 +116,7 @@ export default function Index() {
           <div className="flex items-center gap-2 flex-wrap">
             {worldIdVerified && <WorldIDVerify isVerified={true} onVerified={() => {}} />}
             {clawKeyVerified && <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => {}} isVerified={true} />}
+            {moltbookRegistered && <MoltbookConnect walletAddress={walletAddress || null} isVerified={true} />}
           </div>
           </div>
           {!worldIdVerified && (
@@ -122,6 +127,15 @@ export default function Index() {
           )}
           {worldIdVerified && clawKeyVerified && (
             <>
+              {!moltbookRegistered && (
+                <MoltbookConnect
+                  walletAddress={walletAddress || null}
+                  onRegistered={() => {
+                    setMoltbookRegistered(true);
+                    localStorage.setItem('moltbook_registered', 'true');
+                  }}
+                />
+              )}
               <div className="glass rounded-xl p-3 sm:p-4 mb-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
                 <Wallet className="w-5 h-5 shrink-0 mt-0.5 text-primary/60" />
                 <div>

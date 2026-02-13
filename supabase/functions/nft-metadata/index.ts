@@ -147,44 +147,30 @@ License this skill on-chain via the MoveRegistry program (\`Dp2JcVDt4seef6LbPCto
       urls[path] = urlData.publicUrl;
     }
 
-    // Auto-post to Moltbook (fire-and-forget, don't block the response)
-    const moltbookApiKey = Deno.env.get("MOLTBOOK_API_KEY");
+    // Fire-and-forget: post comment to Moltbook via moltbook-comment edge function
     let moltbookPost = null;
-    if (moltbookApiKey) {
-      try {
-        const moltbookRes = await fetch("https://www.moltbook.com/api/v1/posts", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${moltbookApiKey}`,
-          },
-          body: JSON.stringify({
-            submolt: "moveclaw",
-            title: `New Move: ${moveName}`,
-            content: [
-              `**Creator:** \`${creator}\``,
-              `**Royalty:** ${royaltyPercent ?? 5}%`,
-              mintPubkey ? `**Mint:** \`${mintPubkey}\`` : null,
-              videoHashCid ? `**Video CID:** \`${videoHashCid}\`` : null,
-              "",
-              "```",
-              videoHash || "N/A",
-              "```",
-              "",
-              `[View on MoveRegistry](https://moveregistry.lovable.app)`,
-            ].filter(Boolean).join("\n"),
-            url: "https://moveregistry.lovable.app",
-          }),
-        });
-        if (moltbookRes.ok) {
-          moltbookPost = await moltbookRes.json();
-        } else {
-          const errText = await moltbookRes.text();
-          console.error("Moltbook auto-post failed:", errText);
-        }
-      } catch (moltErr) {
-        console.error("Moltbook auto-post error:", moltErr);
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const commentRes = await fetch(`${supabaseUrl}/functions/v1/moltbook-comment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+        body: JSON.stringify({
+          wallet_address: creator,
+          moveName,
+          creator,
+          mintPubkey: mintPubkey || "",
+          expression: videoHash || "",
+          videoHashCid: videoHashCid || "",
+          royaltyPercent: royaltyPercent ?? 5,
+        }),
+      });
+      if (commentRes.ok) {
+        moltbookPost = await commentRes.json();
+      } else {
+        console.warn("Moltbook comment failed:", await commentRes.text());
       }
+    } catch (moltErr) {
+      console.warn("Moltbook comment error (non-blocking):", moltErr);
     }
 
     return new Response(

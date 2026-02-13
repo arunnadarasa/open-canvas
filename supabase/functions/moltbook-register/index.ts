@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -12,63 +14,84 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Step 1: Register the agent
+    const { wallet_address } = await req.json();
+
+    if (!wallet_address) {
+      return new Response(
+        JSON.stringify({ error: "wallet_address is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Check if already registered
+    const { data: existing } = await supabase
+      .from("moltbook_agents")
+      .select("agent_name, claim_url, claimed")
+      .eq("wallet_address", wallet_address)
+      .maybeSingle();
+
+    if (existing) {
+      return new Response(
+        JSON.stringify({
+          agent_name: existing.agent_name,
+          claim_url: existing.claim_url,
+          claimed: existing.claimed,
+          already_registered: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Register new agent on Moltbook
+    const agentName = `MR-${wallet_address.slice(0, 8)}`;
+
     const registerRes = await fetch(`${MOLTBOOK_API}/agents/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: "MoveRegistry",
-        description:
-          "Decentralized choreography skill registry on Solana — turning human dance moves into verifiable, licensable AI-agent skills.",
+        name: agentName,
+        description: `MoveRegistry dance skill creator (wallet: ${wallet_address.slice(0, 8)}...). Human-verified via World ID + ClawKey.`,
       }),
     });
 
     if (!registerRes.ok) {
       const errText = await registerRes.text();
       return new Response(
-        JSON.stringify({ error: `Registration failed: ${errText}` }),
+        JSON.stringify({ error: `Moltbook registration failed: ${errText}` }),
         { status: registerRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const registerData = await registerRes.json();
-    // registerData should contain { api_key, claim_url }
 
-    // Step 2: Create the submolt (using the new api_key)
-    const apiKey = registerData.api_key;
-    let submoltResult = null;
-
-    if (apiKey) {
-      const submoltRes = await fetch(`${MOLTBOOK_API}/submolts`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          name: "moveclaw",
-          display_name: "MoveClaw Registry",
-          description:
-            "Dance moves minted as NFTs on Solana. Choreography skills for AI agents, metaverse avatars, and robots.",
-          allow_crypto: true,
-        }),
+    // Store in database (api_key never returned to client)
+    const { error: insertError } = await supabase
+      .from("moltbook_agents")
+      .insert({
+        wallet_address,
+        agent_name: agentName,
+        api_key: registerData.api_key,
+        claim_url: registerData.claim_url,
       });
 
-      if (submoltRes.ok) {
-        submoltResult = await submoltRes.json();
-      } else {
-        const submoltErr = await submoltRes.text();
-        submoltResult = { error: submoltErr };
-      }
+    if (insertError) {
+      console.error("DB insert error:", insertError);
+      return new Response(
+        JSON.stringify({ error: `Database error: ${insertError.message}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(
       JSON.stringify({
-        message: "Agent registered. Save the api_key as MOLTBOOK_API_KEY secret, then visit claim_url to activate.",
-        api_key: registerData.api_key,
+        agent_name: agentName,
         claim_url: registerData.claim_url,
-        agent: registerData,
-        submolt: submoltResult,
+        claimed: false,
+        already_registered: false,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
