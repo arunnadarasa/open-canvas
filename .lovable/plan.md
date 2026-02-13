@@ -1,24 +1,30 @@
 
-# Fix Greyed-Out ClawKey Button
 
-## Problem
+# Fix Moltbook Badge Display After Registration
 
-Same deadlock as the Moltbook fix: the "Register Agent with ClawKey" button has `disabled={loading || !walletAddress}`, but ClawKey is a gate **before** wallet connection. The message "Connect your wallet first to register." also shows, confirming the issue.
+## What Actually Happened
 
-## Changes
+Good news: the Moltbook registration **did work**. The API returned successfully with your agent name "RyuAsura" and a claim URL. The flow correctly advanced to the Mint step.
 
-### `src/components/ClawKeyRegister.tsx`
+## The Visual Bug
 
-1. Remove `!walletAddress` from the button's `disabled` condition (keep only `disabled={loading}`)
-2. Remove the conditional message "Connect your wallet first to register."
-3. In `handleRegister`, remove the early `if (!walletAddress) return;` guard -- allow registration without a wallet
-4. When calling the edge function, send `wallet_address` only if available (same pattern as the Moltbook fix)
+The issue is that the "Moltbook Agent" badge in the header area falls back to showing the full "Join Moltbook" card instead of a compact badge. This happens because the badge tries to look up your registration by wallet address, but since you registered **before** connecting a wallet, there's no wallet to match on.
 
-### `supabase/functions/clawkey-register/index.ts`
+## Fix
 
-1. Make `wallet_address` optional -- use a fallback identifier (e.g. a generated UUID) as `deviceId` if no wallet is provided
-2. Still store the record, with `wallet_address` as null when not provided
+### `src/components/MoltbookConnect.tsx`
 
-### Database migration
+When in badge mode (`isVerified={true}`) and the DB lookup finds nothing (no wallet linked yet), show the badge anyway instead of falling through to the full registration card. Use localStorage as a fallback source for the agent name:
 
-1. `ALTER TABLE public.clawkey_agents ALTER COLUMN wallet_address DROP NOT NULL;` (if it has a NOT NULL constraint, same as the Moltbook fix)
+1. In the badge-mode `useEffect`, also check `localStorage.getItem('moltbook_agent_name')` as a fallback when no wallet match is found
+2. In `handleRegister`, save the agent name to localStorage after successful registration: `localStorage.setItem('moltbook_agent_name', data.agent_name)`
+3. When `isVerified` is true but the DB lookup finds nothing, check localStorage -- if a name exists there, show the badge
+
+### `src/pages/Index.tsx`
+
+No changes needed -- the step progression logic is correct.
+
+## Result
+
+After this fix, once Moltbook registration succeeds, the badge will always show "Moltbook Agent" with the agent name, regardless of whether a wallet was connected at registration time.
+
