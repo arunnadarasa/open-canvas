@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, ExternalLink, Loader2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -14,13 +14,45 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
   const [agentName, setAgentName] = useState('');
   const [claimUrl, setClaimUrl] = useState('');
   const [registered, setRegistered] = useState(isVerified || false);
+  const [fetchingStatus, setFetchingStatus] = useState(false);
+  const [claimed, setClaimed] = useState(false);
 
-  // Badge mode
-  if (isVerified && !claimUrl) {
+  // Fetch claim status when in badge mode
+  useEffect(() => {
+    if (!isVerified || !walletAddress) return;
+    setFetchingStatus(true);
+    supabase
+      .from('moltbook_agents_public' as any)
+      .select('agent_name, claim_url, claimed')
+      .eq('wallet_address', walletAddress)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setAgentName((data as any).agent_name || '');
+          setClaimUrl((data as any).claim_url || '');
+          setClaimed(!!(data as any).claimed);
+          setRegistered(true);
+        }
+        setFetchingStatus(false);
+      });
+  }, [isVerified, walletAddress]);
+
+  // Badge mode — only show pill if claimed
+  if (isVerified && !claimUrl && !fetchingStatus) {
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass text-xs font-medium text-primary">
         <Users className="w-3.5 h-3.5" />
         Moltbook Agent
+      </span>
+    );
+  }
+
+  // Still loading status
+  if (fetchingStatus) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass text-xs font-medium text-muted-foreground">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        Loading…
       </span>
     );
   }
