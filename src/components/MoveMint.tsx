@@ -105,7 +105,6 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, isClawKeyVe
 
       // Step 2: Create Metaplex NFT metadata
       let metadataUri = '';
-      let moltbookPostResult: any = null;
       try {
         setStatus('Generating NFT metadata & OpenClaw skill package...');
         const metaResult = await fetchMetadataUri({
@@ -118,14 +117,12 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, isClawKeyVe
           videoHashCid: videoHashCid || undefined,
         });
         metadataUri = metaResult.uri;
-        moltbookPostResult = metaResult.moltbookPost;
         const skillJsonUri = metaResult.skillJsonUri;
         const skillMdUri = metaResult.skillMdUri;
 
         // Store skill URIs for later use
         (window as any).__lastSkillJsonUri = skillJsonUri;
         (window as any).__lastSkillMdUri = skillMdUri;
-        (window as any).__lastMoltbookPost = moltbookPostResult;
 
         setStatus('Building Metaplex metadata transaction...');
         const web3Tx = await buildCreateMetadataTransaction({
@@ -579,35 +576,10 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, isClawKeyVe
           )}
 
           {verifiedContent && (
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <p className="text-sm text-primary font-medium flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" />
-                {paymentMethod === 'usdc' ? 'x402 verified ✓' : 'On-chain confirmed ✓'}
-              </p>
-              {(() => {
-                const mp = (window as any).__lastMoltbookPost;
-                if (mp?.success) {
-                  return (
-                    <a
-                      href="https://www.moltbook.com/m/dancetech"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
-                    >
-                      Posted to Moltbook <ExternalLink className="w-3 h-3" />
-                    </a>
-                  );
-                }
-                if (mp?.skipped) {
-                  return (
-                    <span className="text-xs text-muted-foreground/60">
-                      Moltbook: skipped ({mp.reason || 'rate limited'})
-                    </span>
-                  );
-                }
-                return null;
-              })()}
-            </div>
+            <p className="mt-3 text-sm text-primary font-medium flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4" />
+              {paymentMethod === 'usdc' ? 'x402 verified ✓' : 'On-chain confirmed ✓'}
+            </p>
           )}
         </div>
       )}

@@ -55,12 +55,12 @@ export default function WorldIDVerify({ onVerified, isVerified }: WorldIDVerifyP
   }
 
   return (
-    <div className="glass-strong rounded-2xl p-6 sm:p-8 lg:p-6 text-center lg:text-left space-y-5 lg:space-y-4">
-      <div className="inline-flex items-center justify-center lg:justify-start w-16 h-16 lg:w-12 lg:h-12 rounded-2xl lg:rounded-xl bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))]">
-        <ShieldCheck className="w-8 h-8 lg:w-5 lg:h-5 text-white" />
+    <div className="glass-strong rounded-2xl p-6 sm:p-8 text-center space-y-5">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))]">
+        <ShieldCheck className="w-8 h-8 text-white" />
       </div>
-      <h3 className="text-xl lg:text-lg font-bold">Verify You're Human</h3>
-      <p className="text-sm text-muted-foreground max-w-sm mx-auto lg:mx-0">
+      <h3 className="text-xl font-bold">Verify You're Human</h3>
+      <p className="text-sm text-muted-foreground max-w-sm mx-auto">
         Prove your personhood with World ID before connecting your wallet and minting moves.
       </p>
 
@@ -78,28 +78,27 @@ export default function WorldIDVerify({ onVerified, isVerified }: WorldIDVerifyP
           onSuccess={() => {}}
         >
           {({ open }) => (
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <button
-                onClick={open}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.5)] transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
-              >
-                <ShieldCheck className="w-5 h-5" />
-                Verify with World ID
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  localStorage.setItem('worldid_verified', 'true');
-                  onVerified();
-                }}
-                className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
-              >
-                Skip for demo (hackathon judges)
-              </button>
-            </div>
+            <button
+              onClick={open}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.5)] transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
+            >
+              <ShieldCheck className="w-5 h-5" />
+              Verify with World ID
+            </button>
           )}
         </IDKitWidget>
       )}
+
+      <button
+        type="button"
+        onClick={() => {
+          localStorage.setItem('worldid_verified', 'true');
+          onVerified();
+        }}
+        className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer mt-2"
+      >
+        Skip for demo (hackathon judges)
+      </button>
 
       {error && (
         <p className="text-sm text-destructive">{error}</p>

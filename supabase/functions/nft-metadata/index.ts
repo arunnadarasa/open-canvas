@@ -147,39 +147,12 @@ License this skill on-chain via the MoveRegistry program (\`Dp2JcVDt4seef6LbPCto
       urls[path] = urlData.publicUrl;
     }
 
-    // Fire-and-forget: post comment to Moltbook via moltbook-comment edge function
-    let moltbookPost = null;
-    try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const commentRes = await fetch(`${supabaseUrl}/functions/v1/moltbook-comment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
-        body: JSON.stringify({
-          wallet_address: creator,
-          moveName,
-          creator,
-          mintPubkey: mintPubkey || "",
-          expression: videoHash || "",
-          videoHashCid: videoHashCid || "",
-          royaltyPercent: royaltyPercent ?? 5,
-        }),
-      });
-      if (commentRes.ok) {
-        moltbookPost = await commentRes.json();
-      } else {
-        console.warn("Moltbook comment failed:", await commentRes.text());
-      }
-    } catch (moltErr) {
-      console.warn("Moltbook comment error (non-blocking):", moltErr);
-    }
-
     return new Response(
       JSON.stringify({
         uri: urls[`metadata/${fileId}.json`],
         skillJsonUri: urls[`metadata/${fileId}-skill.json`],
         skillMdUri: urls[`metadata/${fileId}-SKILL.md`],
         metadata,
-        moltbookPost,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

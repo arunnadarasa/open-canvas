@@ -1,8 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink, MessageCircleQuestion, Map, Fingerprint, Users } from 'lucide-react';
-import MoltbookConnect from '../components/MoltbookConnect';
-import StepIndicator from '../components/StepIndicator';
-import WhatsNextPanel from '../components/WhatsNextPanel';
+import { useState } from 'react';
+import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink, MessageCircleQuestion, Map, Fingerprint } from 'lucide-react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { usePrivy } from '@privy-io/react-auth';
 import MoveMint from '../components/MoveMint';
@@ -47,45 +44,6 @@ export default function Index() {
   const [clawKeyVerified, setClawKeyVerified] = useState(
     () => localStorage.getItem('clawkey_verified') === 'true'
   );
-  const [moltbookRegistered, setMoltbookRegistered] = useState(
-    () => localStorage.getItem('moltbook_registered') === 'true'
-  );
-  const [moltbookChecking, setMoltbookChecking] = useState(
-    () => !localStorage.getItem('moltbook_registered') && !!walletAddress
-  );
-
-  // Auto-detect existing Moltbook registration from DB
-  useEffect(() => {
-    if (!walletAddress) {
-      const cachedName = localStorage.getItem('moltbook_agent_name');
-      if (cachedName) {
-        localStorage.setItem('moltbook_registered', 'true');
-        setMoltbookRegistered(true);
-      }
-      setMoltbookChecking(false);
-      return;
-    }
-    if (localStorage.getItem('moltbook_registered') === 'true') {
-      setMoltbookChecking(false);
-      return;
-    }
-    setMoltbookChecking(true);
-    import('@/integrations/supabase/client').then(({ supabase }) => {
-      supabase
-        .from('moltbook_agents_public')
-        .select('wallet_address')
-        .eq('wallet_address', walletAddress)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) {
-            localStorage.setItem('moltbook_registered', 'true');
-            setMoltbookRegistered(true);
-          }
-          setMoltbookChecking(false);
-        });
-    });
-  }, [walletAddress]);
-
   return (
     <main className="min-h-screen bg-mesh text-foreground relative overflow-hidden">
       {/* Floating decorative elements */}
@@ -154,54 +112,17 @@ export default function Index() {
           <div className="flex items-center gap-2 flex-wrap">
             {worldIdVerified && <WorldIDVerify isVerified={true} onVerified={() => {}} />}
             {clawKeyVerified && <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => {}} isVerified={true} />}
-            {moltbookRegistered && <MoltbookConnect walletAddress={walletAddress || null} isVerified={true} />}
           </div>
           </div>
-
-          {/* Step Progress Indicator */}
-          <StepIndicator worldIdVerified={worldIdVerified} clawKeyVerified={clawKeyVerified} moltbookRegistered={moltbookRegistered} />
-
-          {/* Gate content: two-column on desktop */}
-          {!(worldIdVerified && clawKeyVerified && moltbookRegistered) ? (
-            <div className="lg:grid lg:grid-cols-5 lg:gap-8">
-              <div className="lg:col-span-3">
-                {!worldIdVerified && (
-                  <WorldIDVerify isVerified={false} onVerified={() => setWorldIdVerified(true)} />
-                )}
-                {worldIdVerified && !clawKeyVerified && (
-                  <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => setClawKeyVerified(true)} isVerified={false} />
-                )}
-                {worldIdVerified && clawKeyVerified && !moltbookRegistered && !moltbookChecking && (
-                  <div className="space-y-4">
-                    <MoltbookConnect
-                      walletAddress={walletAddress || null}
-                      onRegistered={() => {
-                        setMoltbookRegistered(true);
-                        localStorage.setItem('moltbook_registered', 'true');
-                      }}
-                    />
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          localStorage.setItem('moltbook_registered', 'true');
-                          setMoltbookRegistered(true);
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
-                      >
-                        Skip for demo (hackathon judges)
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <aside className="hidden lg:block lg:col-span-2">
-                <WhatsNextPanel worldIdVerified={worldIdVerified} clawKeyVerified={clawKeyVerified} moltbookRegistered={moltbookRegistered} />
-              </aside>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="glass rounded-xl p-3 sm:p-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
+          {!worldIdVerified && (
+            <WorldIDVerify isVerified={false} onVerified={() => setWorldIdVerified(true)} />
+          )}
+          {worldIdVerified && !clawKeyVerified && (
+            <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => setClawKeyVerified(true)} isVerified={false} />
+          )}
+          {worldIdVerified && clawKeyVerified && (
+            <>
+              <div className="glass rounded-xl p-3 sm:p-4 mb-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
                 <Wallet className="w-5 h-5 shrink-0 mt-0.5 text-primary/60" />
                 <div>
                   <p>To mint on devnet, enable <strong className="text-foreground">Testnet Mode</strong> in Phantom (Settings → Developer Settings) and ensure you have at least <strong className="text-foreground">0.1 SOL</strong>.</p>
@@ -215,7 +136,7 @@ export default function Index() {
                 </div>
               </div>
               <MoveMint onMintSuccess={addMove} isWorldIDVerified={worldIdVerified} isClawKeyVerified={clawKeyVerified} />
-            </div>
+            </>
           )}
         </section>
 
@@ -272,7 +193,6 @@ export default function Index() {
               { icon: Shield, name: 'x402', desc: 'Micropayment-gated skill verification', url: 'https://www.x402.org' },
               { icon: Zap, name: 'Lovable Cloud', desc: 'Backend functions & data storage', url: 'https://lovable.dev' },
               { icon: Fingerprint, name: 'ClawKey', desc: 'Verifiable human ownership for AI agents', url: 'https://clawkey.ai' },
-              { icon: Users, name: 'Moltbook', desc: 'Social network for AI agents — auto-posts minted moves', url: 'https://www.moltbook.com' },
               { icon: Component, name: 'shadcn/ui', desc: 'Accessible UI component library', url: 'https://ui.shadcn.com' },
             ].map((tech, i) => (
               <a

@@ -23,7 +23,7 @@ export type Database = {
           registered_at: string | null
           session_id: string | null
           verified: boolean
-          wallet_address: string | null
+          wallet_address: string
         }
         Insert: {
           created_at?: string
@@ -33,7 +33,7 @@ export type Database = {
           registered_at?: string | null
           session_id?: string | null
           verified?: boolean
-          wallet_address?: string | null
+          wallet_address: string
         }
         Update: {
           created_at?: string
@@ -43,7 +43,7 @@ export type Database = {
           registered_at?: string | null
           session_id?: string | null
           verified?: boolean
-          wallet_address?: string | null
+          wallet_address?: string
         }
         Relationships: []
       }
@@ -92,39 +92,6 @@ export type Database = {
         }
         Relationships: []
       }
-      moltbook_agents: {
-        Row: {
-          agent_name: string
-          api_key: string
-          claim_url: string | null
-          claimed: boolean
-          created_at: string
-          id: string
-          moltbook_post_id: string | null
-          wallet_address: string | null
-        }
-        Insert: {
-          agent_name: string
-          api_key: string
-          claim_url?: string | null
-          claimed?: boolean
-          created_at?: string
-          id?: string
-          moltbook_post_id?: string | null
-          wallet_address?: string | null
-        }
-        Update: {
-          agent_name?: string
-          api_key?: string
-          claim_url?: string | null
-          claimed?: boolean
-          created_at?: string
-          id?: string
-          moltbook_post_id?: string | null
-          wallet_address?: string | null
-        }
-        Relationships: []
-      }
       royalty_events: {
         Row: {
           amount: number
@@ -157,30 +124,7 @@ export type Database = {
       }
     }
     Views: {
-      moltbook_agents_public: {
-        Row: {
-          agent_name: string | null
-          claim_url: string | null
-          claimed: boolean | null
-          created_at: string | null
-          wallet_address: string | null
-        }
-        Insert: {
-          agent_name?: string | null
-          claim_url?: string | null
-          claimed?: boolean | null
-          created_at?: string | null
-          wallet_address?: string | null
-        }
-        Update: {
-          agent_name?: string | null
-          claim_url?: string | null
-          claimed?: boolean | null
-          created_at?: string | null
-          wallet_address?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       [_ in never]: never

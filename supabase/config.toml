@@ -17,12 +17,3 @@ verify_jwt = false
 
 [functions.clawkey-status]
 verify_jwt = false
-
-[functions.moltbook-register]
-verify_jwt = false
-
-[functions.moltbook-post]
-verify_jwt = false
-
-[functions.moltbook-comment]
-verify_jwt = false

@@ -1,1 +1,0 @@
-ALTER TABLE public.moltbook_agents ALTER COLUMN wallet_address DROP NOT NULL;

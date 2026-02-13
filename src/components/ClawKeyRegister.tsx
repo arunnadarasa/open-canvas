@@ -82,6 +82,7 @@ export default function ClawKeyRegister({ walletAddress, onVerified, isVerified 
   }, [stopPolling, onVerified]);
 
   const handleRegister = async () => {
+    if (!walletAddress) return;
     setLoading(true);
     setError(null);
     try {
@@ -90,7 +91,7 @@ export default function ClawKeyRegister({ walletAddress, onVerified, isVerified 
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...(walletAddress ? { wallet_address: walletAddress } : {}) }),
+          body: JSON.stringify({ wallet_address: walletAddress }),
         }
       );
       const data = await res.json();
@@ -127,12 +128,12 @@ export default function ClawKeyRegister({ walletAddress, onVerified, isVerified 
 
   // Gate card (matching WorldIDVerify style)
   return (
-    <div className="glass-strong rounded-2xl p-6 sm:p-8 lg:p-6 text-center lg:text-left space-y-5 lg:space-y-4">
-      <div className="inline-flex items-center justify-center lg:justify-start w-16 h-16 lg:w-12 lg:h-12 rounded-2xl lg:rounded-xl bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))]">
-        <Fingerprint className="w-8 h-8 lg:w-5 lg:h-5 text-white" />
+    <div className="glass-strong rounded-2xl p-6 sm:p-8 text-center space-y-5">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))]">
+        <Fingerprint className="w-8 h-8 text-white" />
       </div>
-      <h3 className="text-xl lg:text-lg font-bold">Register Your Claw Agent</h3>
-      <p className="text-sm text-muted-foreground max-w-sm mx-auto lg:mx-0">
+      <h3 className="text-xl font-bold">Register Your Claw Agent</h3>
+      <p className="text-sm text-muted-foreground max-w-sm mx-auto">
         Prove human ownership of your AI agent via ClawKey's VeryAI palm verification before minting.
       </p>
 
@@ -156,36 +157,39 @@ export default function ClawKeyRegister({ walletAddress, onVerified, isVerified 
           </div>
         </div>
       ) : (
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <button
-            onClick={handleRegister}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.5)] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Registering...
-              </>
-            ) : (
-              <>
-                <Fingerprint className="w-5 h-5" />
-                Register Agent with ClawKey
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.setItem('clawkey_verified', 'true');
-              onVerified();
-            }}
-            className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
-          >
-            Skip for demo (hackathon judges)
-          </button>
-        </div>
+        <button
+          onClick={handleRegister}
+          disabled={loading || !walletAddress}
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.5)] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Registering...
+            </>
+          ) : (
+            <>
+              <Fingerprint className="w-5 h-5" />
+              Register Agent with ClawKey
+            </>
+          )}
+        </button>
       )}
+
+      {!walletAddress && (
+        <p className="text-xs text-muted-foreground">Connect your wallet first to register.</p>
+      )}
+
+      <button
+        type="button"
+        onClick={() => {
+          localStorage.setItem('clawkey_verified', 'true');
+          onVerified();
+        }}
+        className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer mt-2"
+      >
+        Skip for demo (hackathon judges)
+      </button>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
