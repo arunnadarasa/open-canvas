@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink } from 'lucide-react';
+import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink, MessageCircleQuestion, Map } from 'lucide-react';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { usePrivy } from '@privy-io/react-auth';
 import MoveMint from '../components/MoveMint';
 import CertificateGallery from '../components/CertificateGallery';
@@ -187,7 +188,109 @@ export default function Index() {
           </div>
         </section>
 
-        {/* Footer */}
+        {/* Community Q&A */}
+        <section className="mb-16">
+          <div className="text-center mb-8 opacity-0 animate-slide-up-fade" style={{ animationDelay: '1.8s', animationFillMode: 'forwards' }}>
+            <div className="inline-flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] flex items-center justify-center">
+                <MessageCircleQuestion className="w-4 h-4 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold gradient-text">Community Q&A</h2>
+            </div>
+            <p className="text-muted-foreground text-sm">Technical questions from hackathon reviewers — answered</p>
+          </div>
+          <div className="glass-strong rounded-2xl p-6 sm:p-8 opacity-0 animate-slide-up-fade" style={{ animationDelay: '1.9s', animationFillMode: 'forwards' }}>
+            <Accordion type="single" collapsible className="space-y-2">
+              <AccordionItem value="q1" className="border-white/5">
+                <AccordionTrigger className="text-sm text-left hover:no-underline">How do you prevent false attribution if someone mints a move they didn't create?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm leading-relaxed">
+                  World ID proof-of-personhood prevents Sybil attacks (one person, one identity). The creator's wallet is permanently recorded on-chain in the SkillAccount PDA. On our roadmap: community challenge/dispute resolution via DAO governance, and video-hash anchoring so the original recording's content hash is embedded in the NFT metadata, making plagiarism detectable.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="q2" className="border-white/5">
+                <AccordionTrigger className="text-sm text-left hover:no-underline">How does your system handle latency between a Helius webhook event and a royalty distribution?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm leading-relaxed">
+                  Helius webhooks deliver enhanced transaction data in near real-time (typically under 2 seconds). The webhook writes royalty events to our database immediately. The actual royalty distribution happens atomically on-chain via the <code className="text-primary/80">license_skill</code> instruction and the treasury PDA — there is no off-chain delay in payment settlement. The webhook simply indexes the event for the dashboard UI.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="q3" className="border-white/5">
+                <AccordionTrigger className="text-sm text-left hover:no-underline">How are you handling versioning if a choreographer updates a dance move's DSL?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm leading-relaxed">
+                  Each mint is an immutable NFT — the on-chain SkillAccount and Metaplex metadata are permanent records. To "update" a move, the creator mints a new version with an updated DSL expression. Roadmap: a version-chain field in <code className="text-primary/80">skill.json</code> linking new versions to their predecessor mint address, so agents can discover the latest version while preserving the full history.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="q4" className="border-white/5">
+                <AccordionTrigger className="text-sm text-left hover:no-underline">How does your program verify the content hash of submitted choreography?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm leading-relaxed">
+                  The expression field (video IPFS CID or DSL text) is stored directly in the on-chain SkillAccount via the Anchor program. The Metaplex metadata and OpenClaw <code className="text-primary/80">skill.json</code> both reference this hash. Proof-of-payment is also embedded on-chain via Memo instructions (<code className="text-primary/80">x402:&lt;tx_hash&gt;</code>), creating an irrevocable link between payment, verification, and content.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="q5" className="border-white/5">
+                <AccordionTrigger className="text-sm text-left hover:no-underline">How does the licensing flow work — one-time purchase or per-use royalties?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm leading-relaxed">
+                  The <code className="text-primary/80">license_skill</code> instruction on the MoveRegistry program supports per-use licensing. Each call transfers USDC from the licensee to the creator's token account via the treasury PDA. An oracle or self-reporting mechanism for off-chain usage tracking is on our roadmap, starting with Helius webhook indexing for on-chain events.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="q6" className="border-white/5">
+                <AccordionTrigger className="text-sm text-left hover:no-underline">How do you handle disputes — e.g., a choreographer claims unauthorized use?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm leading-relaxed">
+                  All licensing transactions are recorded on-chain and indexed via Helius webhooks, providing a full audit trail. On the roadmap: DAO-based arbitration where staked community members can review disputes, and cryptographic attestation (similar to VRF execution proofs) to verify that an agent actually performed the licensed move before royalties are triggered.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="q7" className="border-white/5">
+                <AccordionTrigger className="text-sm text-left hover:no-underline">How do you solve spam/Sybil and authorship verification?</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-sm leading-relaxed">
+                  World ID (Worldcoin) proof-of-personhood is required before wallet connection or minting — one human = one verified identity. The x402 micropayment ($0.01 USDC) for verification adds an economic cost to spam. Together, these create a two-layer defense: identity verification + economic friction.
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        </section>
+
+        {/* Roadmap */}
+        <section className="mb-16">
+          <div className="text-center mb-8 opacity-0 animate-slide-up-fade" style={{ animationDelay: '2.0s', animationFillMode: 'forwards' }}>
+            <div className="inline-flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] flex items-center justify-center">
+                <Map className="w-4 h-4 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold gradient-text">Roadmap</h2>
+            </div>
+            <p className="text-muted-foreground text-sm">From MVP to mainnet — our development path</p>
+          </div>
+          <div className="relative space-y-4">
+            <div className="absolute left-[19px] top-4 bottom-4 w-px bg-gradient-to-b from-[hsl(var(--gradient-cyan))] via-[hsl(var(--gradient-magenta))] to-[hsl(var(--gradient-solana-purple))] opacity-30 hidden sm:block" />
+            {[
+              { phase: 'Phase 1', label: 'Current MVP', items: ['NFT skill minting via Metaplex', 'World ID proof-of-personhood gate', 'x402 micropayment verification', 'Memo proofs on-chain', 'OpenClaw skill packages (skill.json + SKILL.md)', 'Conditional choreography DSL'] },
+              { phase: 'Phase 2', label: 'Governance & Versioning', items: ['DAO governance for disputes and registry curation', 'Version-chaining for skill updates in skill.json', 'Off-chain usage oracle for per-use royalties'] },
+              { phase: 'Phase 3', label: 'Marketplace & Attestation', items: ['Skill Marketplace for direct buy/sell/license', 'Cross-chain expansion via Wormhole', 'Cryptographic attestation for agent execution proofs'] },
+              { phase: 'Phase 4', label: 'Full Launch', items: ['Robot dance competitions with licensed choreography', 'Full ClawHub integration', 'Mainnet launch'] },
+            ].map((p, i) => (
+              <div
+                key={p.phase}
+                className="glass-strong rounded-2xl p-5 sm:p-6 sm:ml-10 relative opacity-0 animate-slide-up-fade"
+                style={{ animationDelay: `${2.1 + i * 0.1}s`, animationFillMode: 'forwards' }}
+              >
+                <div className="absolute left-[-30px] top-5 w-4 h-4 rounded-full bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] border-2 border-background hidden sm:block" />
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary/80">{p.phase}</span>
+                  <span className="text-xs text-muted-foreground">— {p.label}</span>
+                  {i === 0 && <span className="ml-auto text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-[hsl(var(--gradient-solana-green))]/20 text-[hsl(var(--gradient-solana-green))]">Live</span>}
+                </div>
+                <ul className="space-y-1.5">
+                  {p.items.map(item => (
+                    <li key={item} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <Sparkles className="w-3 h-3 mt-1 shrink-0 text-primary/40" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
+
         <footer className="text-center pt-8 border-t border-white/5">
           <p className="text-sm text-muted-foreground/60">
             OpenClaw Dance Skill Registry — Empowering dance creators with on-chain IP protection for AI agents and robots
