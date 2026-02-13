@@ -1,23 +1,25 @@
 
 
-# Add "Use example" Button to Video Hash Field
+# Add Hackathon Demo Bypass Button for World ID Verification
 
-Add a clickable "Use example" pill button next to the Video Hash label, matching the pattern already used for the Description field.
+Add a secondary "Skip for demo" button below the World ID verify button, allowing hackathon judges and demo viewers to bypass verification without needing the World ID app.
 
 ---
 
 ## What You'll See
 
-A small "Use example" pill button will appear next to the "Video Hash (optional)" label. Clicking it fills the field with a realistic sample IPFS CID, making it easy to demo the full minting flow at a hackathon.
+Below the "Verify with World ID" button, a smaller, subtly styled text button will read "Skip for demo (hackathon judges)". Clicking it immediately marks the user as verified and unlocks the minting form -- no World ID app needed.
 
 ---
 
 ## Technical Details
 
-**`src/components/MoveMint.tsx`**
-- Wrap the existing "Video Hash (optional)" label in a flex row (same pattern as Description)
-- Add a "Use example" pill button that calls `setVideoHashCid('bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')` -- a realistic-looking IPFS v1 CID
-- Styled identically to the Description example button: `text-xs glass rounded-full px-2 py-1 cursor-pointer hover:bg-white/10`
+**`src/components/WorldIDVerify.tsx`**
+- Add a secondary button after the `IDKitWidget` block (around line 89), styled as a subtle ghost/text link:
+  - Label: "Skip for demo (hackathon judges)"
+  - On click: sets `localStorage.setItem('worldid_verified', 'true')` and calls `onVerified()`
+  - Styled with `text-xs text-muted-foreground hover:text-foreground underline cursor-pointer mt-2` to keep it visually secondary
+- No changes to the verified badge or existing World ID flow
 
-No new files, dependencies, or migrations needed. Single file edit (~5 lines changed).
+No new files, dependencies, or migrations needed. Single file edit (~5 lines added).
 
