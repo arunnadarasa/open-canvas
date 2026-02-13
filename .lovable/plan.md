@@ -1,34 +1,23 @@
 
-# Add Optional Description Field with Hackathon Example
 
-Add an optional "Description" text input to the minting form so users can provide a human-readable description of their dance move. Include a pre-filled example button for quick hackathon demos.
+# Add "Use example" Button to Video Hash Field
+
+Add a clickable "Use example" pill button next to the Video Hash label, matching the pattern already used for the Description field.
 
 ---
 
 ## What You'll See
 
-A new text input labeled "Description (optional)" will appear between the Move Name field and the Expression/DSL textarea. A small "Use example" pill button will auto-fill a hackathon-ready description. If left empty, the existing default (`"Dance move NFT: {moveName}"`) will be used as a fallback.
+A small "Use example" pill button will appear next to the "Video Hash (optional)" label. Clicking it fills the field with a realistic sample IPFS CID, making it easy to demo the full minting flow at a hackathon.
 
 ---
 
 ## Technical Details
 
 **`src/components/MoveMint.tsx`**
-- Add new state: `const [description, setDescription] = useState('')`
-- Insert a new input field after Move Name (around line 393) with:
-  - Label: "Description (optional)"
-  - Placeholder: e.g. "A brief description of this dance move..."
-  - A small "Use example" pill button that fills in a hackathon-ready description like: `"An expressive choreography skill that reacts to audience sentiment and proximity, blending chest pops and waves into an emergent dance routine for AI agents."`
-- Replace the hardcoded `description: \`Dance move NFT: ${moveName}\`` in both mint paths (~line 111 and USDC path) with `description || \`Dance move NFT: ${moveName}\``
-- Pass `description` through `onMintSuccess` callback
+- Wrap the existing "Video Hash (optional)" label in a flex row (same pattern as Description)
+- Add a "Use example" pill button that calls `setVideoHashCid('bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')` -- a realistic-looking IPFS v1 CID
+- Styled identically to the Description example button: `text-xs glass rounded-full px-2 py-1 cursor-pointer hover:bg-white/10`
 
-**`src/components/MoveMint.tsx` onMintSuccess type**
-- Add optional `description?: string` to the callback type
+No new files, dependencies, or migrations needed. Single file edit (~5 lines changed).
 
-**`supabase/functions/nft-metadata/index.ts`**
-- Already accepts `description` from the request body -- no changes needed
-
-**`src/hooks/useMintedMoves.ts`**
-- No DB column change needed; the description is already stored in the NFT metadata JSON, not separately in the DB
-
-No new dependencies or migrations needed.
