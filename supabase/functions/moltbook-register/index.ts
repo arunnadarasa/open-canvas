@@ -16,34 +16,31 @@ Deno.serve(async (req) => {
   try {
     const { wallet_address, agent_name, description } = await req.json();
 
-    if (!wallet_address) {
-      return new Response(
-        JSON.stringify({ error: "wallet_address is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // wallet_address is now optional (Moltbook gate happens before wallet connect)
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Check if already registered
-    const { data: existing } = await supabase
-      .from("moltbook_agents")
-      .select("agent_name, claim_url, claimed")
-      .eq("wallet_address", wallet_address)
-      .maybeSingle();
+    // Check if already registered (only if wallet provided)
+    if (wallet_address) {
+      const { data: existing } = await supabase
+        .from("moltbook_agents")
+        .select("agent_name, claim_url, claimed")
+        .eq("wallet_address", wallet_address)
+        .maybeSingle();
 
-    if (existing) {
-      return new Response(
-        JSON.stringify({
-          agent_name: existing.agent_name,
-          claim_url: existing.claim_url,
-          claimed: existing.claimed,
-          already_registered: true,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      if (existing) {
+        return new Response(
+          JSON.stringify({
+            agent_name: existing.agent_name,
+            claim_url: existing.claim_url,
+            claimed: existing.claimed,
+            already_registered: true,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Determine agent name and description
@@ -58,11 +55,11 @@ Deno.serve(async (req) => {
       }
     } else {
       const suffix = Date.now().toString(36).slice(-4);
-      finalName = `MR-${wallet_address.slice(0, 6)}-${suffix}`;
+      finalName = wallet_address ? `MR-${wallet_address.slice(0, 6)}-${suffix}` : `MR-${suffix}`;
     }
 
     const finalDesc = description?.trim()?.slice(0, 200) ||
-      `MoveRegistry dance skill creator (wallet: ${wallet_address.slice(0, 8)}...). Human-verified via World ID + ClawKey.`;
+      `MoveRegistry dance skill creator. Human-verified via World ID + ClawKey.`;
 
     const registerRes = await fetch(`${MOLTBOOK_API}/agents/register`, {
       method: "POST",
@@ -131,7 +128,7 @@ Deno.serve(async (req) => {
     const { error: insertError } = await supabase
       .from("moltbook_agents")
       .insert({
-        wallet_address,
+        ...(wallet_address ? { wallet_address } : {}),
         agent_name: finalName,
         api_key: apiKey,
         claim_url: claimUrl || null,

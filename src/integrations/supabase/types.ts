@@ -101,7 +101,7 @@ export type Database = {
           created_at: string
           id: string
           moltbook_post_id: string | null
-          wallet_address: string
+          wallet_address: string | null
         }
         Insert: {
           agent_name: string
@@ -111,7 +111,7 @@ export type Database = {
           created_at?: string
           id?: string
           moltbook_post_id?: string | null
-          wallet_address: string
+          wallet_address?: string | null
         }
         Update: {
           agent_name?: string
@@ -121,7 +121,7 @@ export type Database = {
           created_at?: string
           id?: string
           moltbook_post_id?: string | null
-          wallet_address?: string
+          wallet_address?: string | null
         }
         Relationships: []
       }
