@@ -157,7 +157,30 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      moltbook_agents_public: {
+        Row: {
+          agent_name: string | null
+          claim_url: string | null
+          claimed: boolean | null
+          created_at: string | null
+          wallet_address: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          claim_url?: string | null
+          claimed?: boolean | null
+          created_at?: string | null
+          wallet_address?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          claim_url?: string | null
+          claimed?: boolean | null
+          created_at?: string | null
+          wallet_address?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
