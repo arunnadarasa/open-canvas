@@ -82,7 +82,6 @@ export default function ClawKeyRegister({ walletAddress, onVerified, isVerified 
   }, [stopPolling, onVerified]);
 
   const handleRegister = async () => {
-    if (!walletAddress) return;
     setLoading(true);
     setError(null);
     try {
@@ -91,7 +90,7 @@ export default function ClawKeyRegister({ walletAddress, onVerified, isVerified 
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wallet_address: walletAddress }),
+          body: JSON.stringify({ ...(walletAddress ? { wallet_address: walletAddress } : {}) }),
         }
       );
       const data = await res.json();
@@ -160,7 +159,7 @@ export default function ClawKeyRegister({ walletAddress, onVerified, isVerified 
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <button
             onClick={handleRegister}
-            disabled={loading || !walletAddress}
+            disabled={loading}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.5)] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
           >
             {loading ? (
@@ -186,10 +185,6 @@ export default function ClawKeyRegister({ walletAddress, onVerified, isVerified 
             Skip for demo (hackathon judges)
           </button>
         </div>
-      )}
-
-      {!walletAddress && (
-        <p className="text-xs text-muted-foreground">Connect your wallet first to register.</p>
       )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}

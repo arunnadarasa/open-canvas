@@ -22,12 +22,7 @@ serve(async (req) => {
 
   try {
     const { wallet_address } = await req.json();
-    if (!wallet_address) {
-      return new Response(
-        JSON.stringify({ error: 'wallet_address is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // wallet_address is optional (ClawKey gate happens before wallet connect)
 
     // Generate Ed25519 key pair
     const keyPair = await crypto.subtle.generateKey(
@@ -53,8 +48,9 @@ serve(async (req) => {
     );
     const signatureBase64 = arrayBufferToBase64(signature);
 
+    const deviceId = wallet_address || crypto.randomUUID();
     const challenge = {
-      deviceId: wallet_address,
+      deviceId,
       publicKey: publicKeyBase64,
       message,
       signature: signatureBase64,
@@ -75,14 +71,16 @@ serve(async (req) => {
       const isAlreadyRegistered = errorMsg.includes('already registered') || errorMsg.includes('already completed');
 
       if (isAlreadyRegistered) {
-        const supabase = createClient(
-          Deno.env.get('SUPABASE_URL')!,
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        );
-        await supabase.from('clawkey_agents').upsert(
-          { wallet_address, verified: true, registered_at: new Date().toISOString() },
-          { onConflict: 'wallet_address' }
-        );
+        if (wallet_address) {
+          const supabase = createClient(
+            Deno.env.get('SUPABASE_URL')!,
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+          );
+          await supabase.from('clawkey_agents').upsert(
+            { wallet_address, verified: true, registered_at: new Date().toISOString() },
+            { onConflict: 'wallet_address' }
+          );
+        }
         return new Response(
           JSON.stringify({ alreadyVerified: true }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -103,8 +101,8 @@ serve(async (req) => {
 
     await supabase.from('clawkey_agents').upsert(
       {
-        wallet_address,
-        device_id: wallet_address,
+        ...(wallet_address ? { wallet_address } : {}),
+        device_id: deviceId,
         public_key: publicKeyBase64,
         session_id: clawData.sessionId,
         verified: false,
