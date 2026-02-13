@@ -303,7 +303,7 @@ export default function Index() {
           <p className="text-sm text-muted-foreground/60">
             OpenClaw Dance Skill Registry — Empowering dance creators with on-chain IP protection for AI agents and robots
           </p>
-          <p className="mt-2">
+          <div className="mt-2 flex items-center justify-center gap-4">
             <a 
               href="https://github.com/arunnadarasa/moveregistry-solana-1770840012418" 
               target="_blank" 
@@ -312,7 +312,15 @@ export default function Index() {
             >
               View Code on GitHub
             </a>
-          </p>
+            <a 
+              href="https://colosseum.com/agent-hackathon/projects/moveregistry" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-sm text-primary hover:text-primary/80 transition-colors underline underline-offset-4"
+            >
+              View on Colosseum
+            </a>
+          </div>
         </footer>
       </div>
     </main>
