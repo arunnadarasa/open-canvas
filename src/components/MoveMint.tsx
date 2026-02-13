@@ -18,10 +18,11 @@ const SOL_AMOUNT_LAMPORTS = 100_000;
 
 type PaymentMethod = 'usdc' | 'sol';
 
-export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol'; mintPubkey?: string; skillPda?: string; metadataUri?: string; skillJsonUri?: string; skillMdUri?: string }) => void; isWorldIDVerified?: boolean; onRequestVerify?: () => void }) {
+export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol'; mintPubkey?: string; skillPda?: string; metadataUri?: string; skillJsonUri?: string; skillMdUri?: string; videoHashCid?: string }) => void; isWorldIDVerified?: boolean; onRequestVerify?: () => void }) {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const [moveName, setMoveName] = useState('');
   const [videoHash, setVideoHash] = useState('');
+  const [videoHashCid, setVideoHashCid] = useState('');
   const [royalty, setRoyalty] = useState(5);
   const [status, setStatus] = useState('');
   const [txSignature, setTxSignature] = useState<string | null>(null);
@@ -112,6 +113,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
           creator: fromPubkey.toBase58(),
           royaltyPercent: royalty,
           mintPubkey: mintKeypair.publicKey.toBase58(),
+          videoHashCid: videoHashCid || undefined,
         });
         metadataUri = metaResult.uri;
         const skillJsonUri = metaResult.skillJsonUri;
@@ -183,7 +185,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
 
     setVerifiedContent({ message: 'SOL payment confirmed on-chain' });
     setStatus(`✅ Move "${moveName}" minted and paid! SOL tx: ${signature.slice(0, 8)}...`);
-    onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'sol', mintPubkey, skillPda, metadataUri, skillJsonUri: (window as any).__lastSkillJsonUri, skillMdUri: (window as any).__lastSkillMdUri });
+    onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'sol', mintPubkey, skillPda, metadataUri, skillJsonUri: (window as any).__lastSkillJsonUri, skillMdUri: (window as any).__lastSkillMdUri, videoHashCid: videoHashCid || undefined });
   };
 
   const handleUSDCPayment = async (fromPubkey: PublicKey, phantom: any, skillPDA: PublicKey, mintPubkey: string, skillPda: string, mintSignature: string, metadataUri?: string) => {
@@ -258,7 +260,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
         setStatus(`✅ Move "${moveName}" minted! x402 verified. On-chain verify: ${verifyErr.message?.slice(0, 60)}`);
       }
 
-      onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'usdc', mintPubkey, skillPda, metadataUri, skillJsonUri: (window as any).__lastSkillJsonUri, skillMdUri: (window as any).__lastSkillMdUri });
+      onMintSuccess?.({ moveName, videoHash, royalty, creator: fromPubkey.toBase58(), txSignature: mintSignature, paymentMethod: 'usdc', mintPubkey, skillPda, metadataUri, skillJsonUri: (window as any).__lastSkillJsonUri, skillMdUri: (window as any).__lastSkillMdUri, videoHashCid: videoHashCid || undefined });
     } catch (verifyErr: any) {
       const errMsg = typeof verifyErr === 'object' ? (verifyErr.message || JSON.stringify(verifyErr)) : String(verifyErr);
       setStatus(`⚠️ Facilitator verification failed: ${errMsg}`);
@@ -430,6 +432,18 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
               <summary className="cursor-pointer hover:text-muted-foreground/80 transition-colors">DSL syntax help</summary>
               <pre className="mt-1 whitespace-pre-wrap">{DSL_HINT}</pre>
             </details>
+          </div>
+
+          {/* Video Hash CID (optional) */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground/90">Video Hash (optional)</label>
+            <input
+              type="text"
+              value={videoHashCid}
+              onChange={(e) => setVideoHashCid(e.target.value)}
+              placeholder="QmXyz... or IPFS video CID"
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all font-mono text-sm"
+            />
           </div>
 
           {/* Royalty Slider */}

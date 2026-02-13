@@ -86,6 +86,12 @@ export default function NFTCertificate({ move, isNew }: { move: MintedMove; isNe
                 <span className="text-yellow-400">Pending verification</span>
               )}
             </div>
+            {move.videoHashCid && (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="text-foreground/70">Video CID:</span>
+                <span className="font-mono truncate">{move.videoHashCid}</span>
+              </div>
+            )}
             {move.metadataUri && (
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <span className="text-foreground/70">Metadata:</span>

@@ -80,6 +80,7 @@ export async function fetchMetadataUri(params: {
   creator: string;
   royaltyPercent: number;
   mintPubkey?: string;
+  videoHashCid?: string;
 }): Promise<{ uri: string; skillJsonUri?: string; skillMdUri?: string }> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;

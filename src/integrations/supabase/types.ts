@@ -27,6 +27,7 @@ export type Database = {
           skill_pda: string | null
           tx_signature: string | null
           verified: boolean
+          video_hash_cid: string | null
         }
         Insert: {
           created_at?: string
@@ -40,6 +41,7 @@ export type Database = {
           skill_pda?: string | null
           tx_signature?: string | null
           verified?: boolean
+          video_hash_cid?: string | null
         }
         Update: {
           created_at?: string
@@ -53,6 +55,7 @@ export type Database = {
           skill_pda?: string | null
           tx_signature?: string | null
           verified?: boolean
+          video_hash_cid?: string | null
         }
         Relationships: []
       }

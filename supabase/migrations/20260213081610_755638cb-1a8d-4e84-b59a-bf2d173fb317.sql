@@ -1,0 +1,1 @@
+ALTER TABLE public.minted_moves ADD COLUMN video_hash_cid TEXT;
