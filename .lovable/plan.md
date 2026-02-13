@@ -1,30 +1,48 @@
 
 
-# Fix Moltbook Badge Display After Registration
+# Fix Moltbook Badge Not Showing After Registration
 
-## What Actually Happened
+## Problem
 
-Good news: the Moltbook registration **did work**. The API returned successfully with your agent name "RyuAsura" and a claim URL. The flow correctly advanced to the Mint step.
+Two early-return guards prevent the localStorage fallback from ever running when there is no wallet connected:
 
-## The Visual Bug
+1. In `MoltbookConnect.tsx` (line 42-44): the badge-mode useEffect returns early when `walletAddress` is null, so the localStorage fallback (line 58-63) is never reached.
+2. In `Index.tsx` (line 58-62): the auto-detect useEffect also exits early when no wallet, so `moltbookRegistered` stays false and the full "Join Moltbook" card keeps showing.
 
-The issue is that the "Moltbook Agent" badge in the header area falls back to showing the full "Join Moltbook" card instead of a compact badge. This happens because the badge tries to look up your registration by wallet address, but since you registered **before** connecting a wallet, there's no wallet to match on.
+## Changes
 
-## Fix
+### 1. `src/components/MoltbookConnect.tsx` -- Fix the badge-mode useEffect
 
-### `src/components/MoltbookConnect.tsx`
+When `walletAddress` is null, instead of returning early, check localStorage for the cached agent name and show the badge if found:
 
-When in badge mode (`isVerified={true}`) and the DB lookup finds nothing (no wallet linked yet), show the badge anyway instead of falling through to the full registration card. Use localStorage as a fallback source for the agent name:
+```
+if (!walletAddress) {
+  const cachedName = localStorage.getItem('moltbook_agent_name');
+  if (cachedName) {
+    setAgentName(cachedName);
+    setRegistered(true);
+  }
+  setFetchingStatus(false);
+  return;
+}
+```
 
-1. In the badge-mode `useEffect`, also check `localStorage.getItem('moltbook_agent_name')` as a fallback when no wallet match is found
-2. In `handleRegister`, save the agent name to localStorage after successful registration: `localStorage.setItem('moltbook_agent_name', data.agent_name)`
-3. When `isVerified` is true but the DB lookup finds nothing, check localStorage -- if a name exists there, show the badge
+### 2. `src/pages/Index.tsx` -- Fix the auto-detect useEffect
 
-### `src/pages/Index.tsx`
+When `walletAddress` is null, also check localStorage for `moltbook_agent_name` before returning:
 
-No changes needed -- the step progression logic is correct.
+```
+if (!walletAddress) {
+  const cachedName = localStorage.getItem('moltbook_agent_name');
+  if (cachedName) {
+    localStorage.setItem('moltbook_registered', 'true');
+    setMoltbookRegistered(true);
+  }
+  setMoltbookChecking(false);
+  return;
+}
+```
 
 ## Result
 
-After this fix, once Moltbook registration succeeds, the badge will always show "Moltbook Agent" with the agent name, regardless of whether a wallet was connected at registration time.
-
+After registration, the badge will display correctly even before a wallet is connected, because both components will find the agent name in localStorage as a fallback.
