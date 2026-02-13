@@ -1,54 +1,33 @@
 
 
-# Add "Skip for Judges" Button to Moltbook & Make It a Gate
+# Fix Greyed-Out Moltbook Button
 
 ## Problem
 
-The Moltbook registration card appears but doesn't actually gate the minting form -- the Connect Wallet button and devnet instructions show regardless. The user wants Moltbook to be a mandatory step (like WorldID and ClawKey) that must be completed **or skipped** before the wallet connect / minting section appears.
+The "Join Moltbook" button is disabled because it checks `disabled={!walletAddress}`, but the wallet isn't connected yet -- Moltbook is now a gate **before** the wallet connect step. This creates a deadlock: can't register without a wallet, can't connect a wallet without registering.
 
-## Changes
+## Solution
 
-### `src/pages/Index.tsx`
+Remove the wallet address requirement from Moltbook registration at this stage. The registration will work with just the agent name and bio. The wallet address will be associated later (after the user connects their wallet and mints).
 
-1. **Gate the minting section behind Moltbook**: Move the devnet instructions and `MoveMint` component so they only render when `moltbookRegistered` is true (or skipped).
+### Changes
 
-2. **Add "Skip for demo" button**: Add a text button below the MoltbookConnect card (similar to the existing ClawKey skip pattern) that sets localStorage and state to bypass the gate.
+**`src/components/MoltbookConnect.tsx`**
+- Remove `disabled={!walletAddress}` from the "Join Moltbook" button so it's always clickable
+- Update `handleRegister` to not require `walletAddress` -- send it if available, skip if not
+- Remove the early return `if (!walletAddress) return;` from `handleRegister`
 
-3. **Update badge row**: The existing badge row already shows the Moltbook badge when registered -- no changes needed there.
+**`supabase/functions/moltbook-register/index.ts`**
+- Make `wallet_address` optional in the request body (it was required before)
+- If no wallet address is provided, generate a temporary placeholder or skip the DB wallet association
+- Still register the agent on Moltbook API (which only needs name + description)
+- Store the record with a null/empty wallet address, to be updated later
 
-### Specific code changes
+### Flow After Fix
 
-**Render logic update** (around lines 159-184):
-
-```text
-{worldIdVerified && clawKeyVerified && !moltbookRegistered && !moltbookChecking && (
-  <div className="space-y-3">
-    <MoltbookConnect ... />
-    <button onClick={skipMoltbook}>
-      Skip for demo (judges)
-    </button>
-  </div>
-)}
-
-{worldIdVerified && clawKeyVerified && (moltbookRegistered || moltbookChecking === false && moltbookRegistered) && (
-  <div className="space-y-4">
-    {/* devnet instructions */}
-    {/* MoveMint */}
-  </div>
-)}
-```
-
-Simplified: the devnet instructions + MoveMint only render when all three gates pass (worldId + clawKey + moltbook).
-
-**Skip handler**:
-```text
-const skipMoltbook = () => {
-  localStorage.setItem('moltbook_registered', 'true');
-  setMoltbookRegistered(true);
-};
-```
-
-This reuses the same localStorage key so skipping is persistent across sessions. The "Skip for demo" button will be styled as a subtle text link, matching the existing skip pattern used for ClawKey.
-
-No other files need changes.
+1. User completes WorldID and ClawKey gates
+2. Moltbook card appears with an active "Join Moltbook" button
+3. User clicks it, enters name + bio, registers (no wallet needed)
+4. Gate passes, wallet connect + minting form appears
+5. "Skip for demo" button also remains available as before
 
