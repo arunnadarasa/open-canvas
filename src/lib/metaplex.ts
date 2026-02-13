@@ -81,7 +81,7 @@ export async function fetchMetadataUri(params: {
   royaltyPercent: number;
   mintPubkey?: string;
   videoHashCid?: string;
-}): Promise<{ uri: string; skillJsonUri?: string; skillMdUri?: string }> {
+}): Promise<{ uri: string; skillJsonUri?: string; skillMdUri?: string; moltbookPost?: any }> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -101,5 +101,5 @@ export async function fetchMetadataUri(params: {
   }
 
   const data = await res.json();
-  return { uri: data.uri, skillJsonUri: data.skillJsonUri, skillMdUri: data.skillMdUri };
+  return { uri: data.uri, skillJsonUri: data.skillJsonUri, skillMdUri: data.skillMdUri, moltbookPost: data.moltbookPost ?? null };
 }

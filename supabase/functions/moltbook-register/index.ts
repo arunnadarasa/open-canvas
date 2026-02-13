@@ -95,6 +95,24 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Subscribe agent to dancetech submolt (required before posting)
+    try {
+      const subRes = await fetch(`${MOLTBOOK_API}/submolts/dancetech/subscribe`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+      });
+      if (!subRes.ok) {
+        console.warn("Submolt subscribe failed (non-blocking):", await subRes.text());
+      } else {
+        console.log("Agent subscribed to dancetech submolt");
+      }
+    } catch (subErr) {
+      console.warn("Submolt subscribe error (non-blocking):", subErr);
+    }
+
     // Store in database (api_key never returned to client)
     const { error: insertError } = await supabase
       .from("moltbook_agents")

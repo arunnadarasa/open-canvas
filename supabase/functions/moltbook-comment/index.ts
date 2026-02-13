@@ -45,6 +45,19 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Ensure agent is subscribed to dancetech (idempotent safety net)
+    try {
+      await fetch(`${MOLTBOOK_API}/submolts/dancetech/subscribe`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${agent.api_key}`,
+        },
+      });
+    } catch (subErr) {
+      console.warn("Submolt subscribe check failed (non-blocking):", subErr);
+    }
+
     // Build comment content
     const content = [
       `🎯 **New Move Minted: ${moveName}**`,
