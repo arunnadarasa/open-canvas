@@ -40,6 +40,11 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
   useEffect(() => {
     if (!isVerified) return;
     if (!walletAddress) {
+      const cachedName = localStorage.getItem('moltbook_agent_name');
+      if (cachedName) {
+        setAgentName(cachedName);
+        setRegistered(true);
+      }
       setFetchingStatus(false);
       return;
     }
