@@ -41,6 +41,9 @@ export default function Index() {
   const [worldIdVerified, setWorldIdVerified] = useState(
     () => localStorage.getItem('worldid_verified') === 'true'
   );
+  const [clawKeyVerified, setClawKeyVerified] = useState(
+    () => localStorage.getItem('clawkey_verified') === 'true'
+  );
   return (
     <main className="min-h-screen bg-mesh text-foreground relative overflow-hidden">
       {/* Floating decorative elements */}
@@ -106,7 +109,10 @@ export default function Index() {
               </div>
               Mint Your Move
             </h2>
-          {worldIdVerified && <WorldIDVerify isVerified={true} onVerified={() => {}} />}
+          <div className="flex items-center gap-2 flex-wrap">
+            {worldIdVerified && <WorldIDVerify isVerified={true} onVerified={() => {}} />}
+            {clawKeyVerified && <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => {}} isVerified={true} />}
+          </div>
           </div>
           <div className="glass rounded-xl p-3 sm:p-4 mb-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
             <Wallet className="w-5 h-5 shrink-0 mt-0.5 text-primary/60" />
@@ -124,8 +130,12 @@ export default function Index() {
           {!worldIdVerified && (
             <WorldIDVerify isVerified={false} onVerified={() => setWorldIdVerified(true)} />
           )}
-          <MoveMint onMintSuccess={addMove} isWorldIDVerified={worldIdVerified} />
-          <ClawKeyRegister walletAddress={walletAddress || null} />
+          {worldIdVerified && !clawKeyVerified && (
+            <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => setClawKeyVerified(true)} isVerified={false} />
+          )}
+          {worldIdVerified && clawKeyVerified && (
+            <MoveMint onMintSuccess={addMove} isWorldIDVerified={worldIdVerified} isClawKeyVerified={clawKeyVerified} />
+          )}
         </section>
 
         {/* Certificate Gallery + Royalty Tracker */}

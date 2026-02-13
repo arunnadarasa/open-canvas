@@ -18,7 +18,7 @@ const SOL_AMOUNT_LAMPORTS = 100_000;
 
 type PaymentMethod = 'usdc' | 'sol';
 
-export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol'; mintPubkey?: string; skillPda?: string; metadataUri?: string; skillJsonUri?: string; skillMdUri?: string; videoHashCid?: string }) => void; isWorldIDVerified?: boolean; onRequestVerify?: () => void }) {
+export default function MoveMint({ onMintSuccess, isWorldIDVerified, isClawKeyVerified, onRequestVerify }: { onMintSuccess?: (data: { moveName: string; videoHash: string; royalty: number; creator: string; txSignature: string; paymentMethod: 'usdc' | 'sol'; mintPubkey?: string; skillPda?: string; metadataUri?: string; skillJsonUri?: string; skillMdUri?: string; videoHashCid?: string }) => void; isWorldIDVerified?: boolean; isClawKeyVerified?: boolean; onRequestVerify?: () => void }) {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const [moveName, setMoveName] = useState('');
   const [videoHash, setVideoHash] = useState('');
