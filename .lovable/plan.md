@@ -1,98 +1,52 @@
 
 
-# Integrate User Feedback: Memo Proofs, OpenClaw Skill Format, and Conditional DSL
+# Add Q&A and Roadmap Section to the Landing Page
 
-Three enhancements based on community feedback, each building on the existing architecture.
-
----
-
-## 1. x402 Memo Instruction -- Proof-of-Payment On-Chain
-
-**What**: Add a Solana Memo Program instruction to the mint transaction that embeds a proof-of-payment reference (x402 payment hash or facilitator tx ID) directly in the NFT's on-chain history.
-
-**Why**: Links royalty payments to on-chain proof, making verification trustless and auditable.
-
-**Changes**:
-- **`src/components/MoveMint.tsx`**: After x402 verification succeeds and returns `tx_hash`, build a follow-up transaction with a Memo instruction containing `x402:<tx_hash>` and have Phantom sign/send it. Alternatively, embed the memo in the `verify_skill` transaction that already runs post-payment.
-- **`src/lib/anchor-client.ts`**: Add a helper `buildMemoInstruction(message: string)` using the Memo Program (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`).
+Add two new sections before the footer on the Index page: a **Community Q&A** accordion addressing real hackathon feedback, and a **Roadmap** section showing the MVP-to-future progression.
 
 ---
 
-## 2. OpenClaw Skill Format -- SKILL.md + skill.json
+## Q&A Content (sourced from hackathon feedback, with technically accurate answers)
 
-**What**: Generate an OpenClaw-compatible skill package for each minted move, consisting of:
-- `skill.json` (metadata: name, version, creator, royalty, mint address, conditions)
-- `SKILL.md` (human/agent-readable description with API endpoints for licensing)
+**1. How do you prevent false attribution if someone mints a move they didn't create?**
+Currently, World ID proof-of-personhood prevents Sybil attacks (one person, one identity). The creator's wallet is permanently recorded on-chain in the SkillAccount PDA. On our roadmap: community challenge/dispute resolution via DAO governance, and video-hash anchoring so the original recording's content hash is embedded in the NFT metadata, making plagiarism detectable.
 
-Both hosted alongside the NFT metadata in storage.
+**2. How does your system handle latency between a Helius webhook event and a royalty distribution?**
+Helius webhooks deliver enhanced transaction data in near real-time (typically under 2 seconds). The webhook writes royalty events to our database immediately. The actual royalty distribution happens atomically on-chain via the `license_skill` instruction and the treasury PDA -- there is no off-chain delay in payment settlement. The webhook simply indexes the event for the dashboard UI.
 
-**Why**: AI agents using ClawHub or similar skill discovery endpoints can parse and install moves directly.
+**3. How are you handling versioning if a choreographer updates a dance move's DSL?**
+Each mint is an immutable NFT -- the on-chain SkillAccount and Metaplex metadata are permanent records. To "update" a move, the creator mints a new version with an updated DSL expression. Roadmap: a version-chain field in skill.json linking new versions to their predecessor mint address, so agents can discover the latest version while preserving the full history.
 
-**Changes**:
-- **`supabase/functions/nft-metadata/index.ts`**: Extend to also generate and upload `skill.json` and `SKILL.md` files to the `nft-metadata` storage bucket. Return their URLs alongside the existing metadata URI.
-- **`src/hooks/useMintedMoves.ts`**: Add `skillJsonUri` and `skillMdUri` to the `MintedMove` type.
-- **`src/components/MoveMint.tsx`**: Pass the new URIs through the mint flow.
-- **New file: `public/skill.md`**: A root-level SKILL.md for the OpenClaw registry itself (like Moltbook's), describing the registry API and linking to individual skill files.
+**4. How does your program verify the content hash of submitted choreography?**
+The expression field (video IPFS CID or DSL text) is stored directly in the on-chain SkillAccount via the Anchor program. The Metaplex metadata and OpenClaw skill.json both reference this hash. Any verifier can compare the on-chain expression against the original content. Proof-of-payment is also embedded on-chain via Memo instructions (`x402:<tx_hash>`), creating an irrevocable link between payment, verification, and content.
 
----
+**5. How does the licensing flow work -- one-time purchase or per-use royalties?**
+The `license_skill` instruction on the MoveRegistry program supports per-use licensing. Each call transfers USDC from the licensee to the creator's token account via the treasury PDA. An oracle or self-reporting mechanism for off-chain usage tracking is on our roadmap, starting with Helius webhook indexing for on-chain events.
 
-## 3. Conditional Choreography DSL -- Parameterized Skills
+**6. How do you handle disputes -- e.g., a choreographer claims unauthorized use?**
+Currently, all licensing transactions are recorded on-chain and indexed via Helius webhooks, providing a full audit trail. On the roadmap: DAO-based arbitration where staked community members can review disputes, and cryptographic attestation (similar to VRF execution proofs) to verify that an agent actually performed the licensed move before royalties are triggered.
 
-**What**: Extend the "expression" field into a lightweight DSL that supports conditional triggers. Example:
+**7. How do you solve spam/Sybil and authorship verification?**
+World ID (Worldcoin) proof-of-personhood is required before wallet connection or minting. This ensures one human = one verified identity. The x402 micropayment ($0.01 USDC) for verification adds an economic cost to spam. Together, these create a two-layer defense: identity verification + economic friction.
 
-```text
-dance:chest_pop if sentiment > 0.8
-dance:wave if proximity < 2.0
-dance:idle otherwise
-```
+## Roadmap Content
 
-**Why**: Downstream agents can compose movements into emergent behaviors based on environmental inputs (sentiment, proximity, audio, etc.).
-
-**Changes**:
-- **`src/lib/skill-dsl.ts`** (new file): A parser/validator for the conditional DSL format. Validates syntax before minting, converts to a structured JSON representation stored in skill.json.
-- **`src/components/MoveMint.tsx`**: Replace the plain "Video Hash or Expression" input with a DSL-aware editor that shows syntax hints and validates conditions. Keep backward compatibility with plain text/IPFS CIDs.
-- **`supabase/functions/nft-metadata/index.ts`**: Parse the expression field -- if it matches DSL format, include structured `conditions` array in metadata and skill.json.
+- **Phase 1 (Current MVP)**: NFT skill minting, World ID gate, x402 verification, Memo proofs, OpenClaw skill packages, conditional DSL
+- **Phase 2**: DAO governance for disputes and registry curation, version-chaining for skill updates, off-chain usage oracle for per-use royalties
+- **Phase 3**: Skill Marketplace for direct buy/sell/license, cross-chain expansion via Wormhole, cryptographic attestation for agent execution proofs
+- **Phase 4**: Robot dance competitions with licensed choreography, full ClawHub integration, mainnet launch
 
 ---
 
-## File Summary
+## Technical Implementation
 
-| File | Action |
-|------|--------|
-| `src/lib/anchor-client.ts` | Add memo instruction helper |
-| `src/components/MoveMint.tsx` | Add memo to verify step, DSL input, pass skill URIs |
-| `supabase/functions/nft-metadata/index.ts` | Generate skill.json + SKILL.md alongside metadata |
-| `src/lib/skill-dsl.ts` | New -- DSL parser/validator |
-| `src/hooks/useMintedMoves.ts` | Add skillJsonUri, skillMdUri fields |
-| `public/skill.md` | New -- root-level OpenClaw registry skill file |
+### Files Modified
 
-## Technical Details
+**`src/pages/Index.tsx`**
+- Import `Accordion, AccordionItem, AccordionTrigger, AccordionContent` from the existing shadcn accordion component
+- Import `MessageCircleQuestion, Map` from lucide-react
+- Add a "Community Q&A" section using the Accordion component with the 7 Q&A items above, placed between the Tech Stack section and the Footer
+- Add a "Roadmap" section below Q&A with 4 phases displayed as a vertical timeline using glass-strong cards with phase labels and bullet points
+- Both sections follow the existing animation pattern (`opacity-0 animate-slide-up-fade` with staggered delays)
 
-**Memo Program**: Program ID `MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`. The instruction data is simply the UTF-8 encoded memo string. No additional accounts needed beyond the signer.
-
-**DSL Grammar** (kept intentionally simple):
-```text
-<action>:<move_name> if <variable> <operator> <threshold>
-<action>:<move_name> otherwise
-```
-Variables: `sentiment`, `proximity`, `tempo`, `energy`, `volume`. Operators: `>`, `<`, `>=`, `<=`, `==`.
-
-**skill.json schema**:
-```json
-{
-  "name": "move_name",
-  "version": "1.0.0",
-  "description": "...",
-  "homepage": "https://moveregistry.lovable.app",
-  "metadata": {
-    "openclaw": {
-      "category": "choreography",
-      "mint": "<mint_pubkey>",
-      "creator": "<wallet>",
-      "royalty_bps": 500,
-      "conditions": [...]
-    }
-  }
-}
-```
-
+No new files, no new dependencies -- uses the existing Accordion component and styling patterns already in the project.
