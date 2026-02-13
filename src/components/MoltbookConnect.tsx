@@ -108,6 +108,12 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
           >
             View dancetech
           </a>
+          <button
+            onClick={() => setJustRegistered(false)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+          >
+            I've Claimed It ✓
+          </button>
         </div>
       </div>
     );
