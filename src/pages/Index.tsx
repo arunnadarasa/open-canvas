@@ -114,6 +114,10 @@ export default function Index() {
               <a href="https://faucet.solana.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-primary hover:text-primary/80 transition-colors underline underline-offset-4">
                 Get free devnet SOL <ExternalLink className="w-3 h-3" />
               </a>
+              <p className="mt-2">To pay with USDC, get devnet USDC from Circle's faucet (select <strong className="text-foreground">Solana</strong> and <strong className="text-foreground">Devnet</strong>).</p>
+              <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-primary hover:text-primary/80 transition-colors underline underline-offset-4">
+                Get free devnet USDC <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
           </div>
           {!worldIdVerified && (
