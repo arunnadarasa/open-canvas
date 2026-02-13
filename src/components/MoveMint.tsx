@@ -23,6 +23,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
   const [moveName, setMoveName] = useState('');
   const [videoHash, setVideoHash] = useState('');
   const [videoHashCid, setVideoHashCid] = useState('');
+  const [description, setDescription] = useState('');
   const [royalty, setRoyalty] = useState(5);
   const [status, setStatus] = useState('');
   const [txSignature, setTxSignature] = useState<string | null>(null);
@@ -108,7 +109,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
         setStatus('Generating NFT metadata & OpenClaw skill package...');
         const metaResult = await fetchMetadataUri({
           moveName,
-          description: `Dance move NFT: ${moveName}`,
+          description: description || `Dance move NFT: ${moveName}`,
           videoHash,
           creator: fromPubkey.toBase58(),
           royaltyPercent: royalty,
@@ -156,7 +157,7 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
       console.error('Mint error:', error);
       setStatus(`❌ Error: ${error.message || 'Unknown error'}`);
     }
-  }, [authenticated, moveName, videoHash, royalty, user, paymentMethod]);
+  }, [authenticated, moveName, videoHash, royalty, user, paymentMethod, description, videoHashCid]);
 
   const handleSOLPayment = async (fromPubkey: PublicKey, phantom: any, mintPubkey: string, skillPda: string, mintSignature: string, metadataUri?: string) => {
     setStatus('Preparing SOL payment...');
@@ -388,6 +389,27 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
               onChange={(e) => setMoveName(e.target.value)}
               placeholder="e.g., 'Asura's Signature Chest Pop'"
               required
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+            />
+          </div>
+
+          {/* Description (optional) */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <label className="block text-sm font-medium text-foreground/90">Description (optional)</label>
+              <button
+                type="button"
+                onClick={() => setDescription('An expressive choreography skill that reacts to audience sentiment and proximity, blending chest pops and waves into an emergent dance routine for AI agents.')}
+                className="text-xs glass rounded-full px-2 py-1 cursor-pointer hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Use example
+              </button>
+            </div>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="A brief description of this dance move..."
               className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
             />
           </div>
