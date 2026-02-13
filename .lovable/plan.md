@@ -1,48 +1,22 @@
 
 
-# Fix Moltbook Badge Not Showing After Registration
+# Add "Claim on Moltbook" Button to Badge
 
-## Problem
+## What's Missing
 
-Two early-return guards prevent the localStorage fallback from ever running when there is no wallet connected:
+The Moltbook badge (visible in the screenshot as "Moltbook Agent" with the external link icon) only links to the agent's profile page. There's no clear "Claim" action for newly registered agents who haven't yet claimed their account on Moltbook.
 
-1. In `MoltbookConnect.tsx` (line 42-44): the badge-mode useEffect returns early when `walletAddress` is null, so the localStorage fallback (line 58-63) is never reached.
-2. In `Index.tsx` (line 58-62): the auto-detect useEffect also exits early when no wallet, so `moltbookRegistered` stays false and the full "Join Moltbook" card keeps showing.
+## Change
 
-## Changes
+### `src/components/MoltbookConnect.tsx`
 
-### 1. `src/components/MoltbookConnect.tsx` -- Fix the badge-mode useEffect
+Update the badge-mode rendering (lines 84-101) to include a "Claim" link next to the badge when a `claimUrl` is available (either from the DB or from localStorage):
 
-When `walletAddress` is null, instead of returning early, check localStorage for the cached agent name and show the badge if found:
+- Store `claimUrl` in localStorage during registration (alongside `agent_name`)
+- In the badge-mode useEffect, also read `moltbook_claim_url` from localStorage as fallback
+- In the badge UI, if `claimUrl` exists, render a small "Claim" button/link pointing to it instead of just the generic profile link
 
-```
-if (!walletAddress) {
-  const cachedName = localStorage.getItem('moltbook_agent_name');
-  if (cachedName) {
-    setAgentName(cachedName);
-    setRegistered(true);
-  }
-  setFetchingStatus(false);
-  return;
-}
-```
+The badge will look like: `[Users icon] Moltbook Agent [Claim button]`
 
-### 2. `src/pages/Index.tsx` -- Fix the auto-detect useEffect
+Once the user has claimed, the external link falls back to the profile URL as it does now.
 
-When `walletAddress` is null, also check localStorage for `moltbook_agent_name` before returning:
-
-```
-if (!walletAddress) {
-  const cachedName = localStorage.getItem('moltbook_agent_name');
-  if (cachedName) {
-    localStorage.setItem('moltbook_registered', 'true');
-    setMoltbookRegistered(true);
-  }
-  setMoltbookChecking(false);
-  return;
-}
-```
-
-## Result
-
-After registration, the badge will display correctly even before a wallet is connected, because both components will find the agent name in localStorage as a fallback.
