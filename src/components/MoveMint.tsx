@@ -330,9 +330,9 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, onRequestVe
               {isConnecting ? 'Connecting...' : 'Connect Wallet'}
             </button>
             {typeof window !== 'undefined' && !(window as any).solana?.isPhantom && (
-              <p className="flex items-center gap-1.5 text-sm text-yellow-400/80">
-                <AlertTriangle className="w-4 h-4" />
-                Phantom wallet not detected. Please install Phantom extension.
+              <p className="flex items-start gap-1.5 text-sm text-yellow-400/80">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>On mobile, open this page inside the <strong>Phantom app's browser</strong>. On desktop, install the <a href="https://phantom.app/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-yellow-300">Phantom browser extension</a>.</span>
               </p>
             )}
           </div>
