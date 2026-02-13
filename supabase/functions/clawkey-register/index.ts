@@ -71,6 +71,24 @@ serve(async (req) => {
     const clawData = await clawRes.json();
 
     if (!clawRes.ok) {
+      const errorMsg = (clawData.error || clawData.message || '').toLowerCase();
+      const isAlreadyRegistered = errorMsg.includes('already registered') || errorMsg.includes('already completed');
+
+      if (isAlreadyRegistered) {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        );
+        await supabase.from('clawkey_agents').upsert(
+          { wallet_address, verified: true, registered_at: new Date().toISOString() },
+          { onConflict: 'wallet_address' }
+        );
+        return new Response(
+          JSON.stringify({ alreadyVerified: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       return new Response(
         JSON.stringify({ error: clawData.error || 'ClawKey registration failed', details: clawData }),
         { status: clawRes.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

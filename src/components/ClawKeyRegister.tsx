@@ -87,6 +87,10 @@ export default function ClawKeyRegister({ walletAddress }: ClawKeyRegisterProps)
         }
       );
       const data = await res.json();
+      if (data.alreadyVerified) {
+        setVerified(true);
+        return;
+      }
       if (!res.ok) {
         setError(data.error || 'Registration failed');
         return;
