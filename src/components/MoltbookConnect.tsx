@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, ExternalLink, Loader2, CheckCircle2 } from 'lucide-react';
+import { Users, ExternalLink, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface MoltbookConnectProps {
@@ -13,11 +13,11 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
   const [error, setError] = useState('');
   const [agentName, setAgentName] = useState('');
   const [claimUrl, setClaimUrl] = useState('');
-  const [registered, setRegistered] = useState(isVerified || false);
+  const [registered, setRegistered] = useState(false);
   const [fetchingStatus, setFetchingStatus] = useState(!!isVerified);
-  const [claimed, setClaimed] = useState(false);
+  const [justRegistered, setJustRegistered] = useState(false);
 
-  // Fetch claim status when in badge mode
+  // Fetch registration status when in badge mode
   useEffect(() => {
     if (!isVerified) return;
     if (!walletAddress) {
@@ -27,71 +27,20 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
     setFetchingStatus(true);
     supabase
       .from('moltbook_agents_public' as any)
-      .select('agent_name, claim_url, claimed')
+      .select('agent_name, claim_url')
       .eq('wallet_address', walletAddress)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setAgentName((data as any).agent_name || '');
           setClaimUrl((data as any).claim_url || '');
-          setClaimed(!!(data as any).claimed);
           setRegistered(true);
         }
         setFetchingStatus(false);
       });
   }, [isVerified, walletAddress]);
 
-  // Badge mode — only show pill if confirmed claimed
-  if (isVerified && claimed && !fetchingStatus) {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass text-xs font-medium text-primary">
-        <Users className="w-3.5 h-3.5" />
-        Moltbook Agent
-      </span>
-    );
-  }
-
-  // Show claim card if registered but unclaimed
-  if (isVerified && claimUrl && !claimed && !fetchingStatus) {
-    return (
-      <div className="glass-strong rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] flex items-center justify-center">
-            <Users className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-sm">Moltbook Agent Registered</h3>
-            <p className="text-xs text-muted-foreground font-mono">{agentName}</p>
-          </div>
-          <CheckCircle2 className="w-5 h-5 text-primary ml-auto" />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Visit Moltbook to claim your agent and manage your API key.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={claimUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Claim on Moltbook
-          </a>
-          <a
-            href="https://www.moltbook.com/m/dancetech"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-white/10 hover:bg-white/5 transition-colors"
-          >
-            View dancetech
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  // Still loading status
+  // Loading state
   if (fetchingStatus) {
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass text-xs font-medium text-muted-foreground">
@@ -101,31 +50,28 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
     );
   }
 
-  const handleRegister = async () => {
-    if (!walletAddress) return;
-    setLoading(true);
-    setError('');
+  // Badge mode: registered agent found
+  if (isVerified && registered && !justRegistered) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass text-xs font-medium text-primary">
+        <Users className="w-3.5 h-3.5" />
+        Moltbook Agent
+        {agentName && (
+          <a
+            href={`https://www.moltbook.com/u/${agentName}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground hover:text-primary transition-colors"
+          >
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
+      </span>
+    );
+  }
 
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('moltbook-register', {
-        body: { wallet_address: walletAddress },
-      });
-
-      if (fnError) throw new Error(fnError.message);
-      if (data?.error) throw new Error(data.error);
-
-      setAgentName(data.agent_name);
-      setClaimUrl(data.claim_url);
-      setRegistered(true);
-      onRegistered?.();
-    } catch (err: any) {
-      setError(err.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (registered && claimUrl) {
+  // Just-registered confirmation with claim URL
+  if (justRegistered && claimUrl) {
     return (
       <div className="glass-strong rounded-2xl p-6 space-y-4">
         <div className="flex items-center gap-3">
@@ -136,7 +82,6 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
             <h3 className="font-semibold text-sm">Moltbook Agent Registered</h3>
             <p className="text-xs text-muted-foreground font-mono">{agentName}</p>
           </div>
-          <CheckCircle2 className="w-5 h-5 text-primary ml-auto" />
         </div>
         <p className="text-sm text-muted-foreground">
           Visit Moltbook to claim your agent and manage your API key. Your minted moves will be posted to the{' '}
@@ -167,6 +112,32 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
       </div>
     );
   }
+
+  // Registration card
+  const handleRegister = async () => {
+    if (!walletAddress) return;
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('moltbook-register', {
+        body: { wallet_address: walletAddress },
+      });
+
+      if (fnError) throw new Error(fnError.message);
+      if (data?.error) throw new Error(data.error);
+
+      setAgentName(data.agent_name);
+      setClaimUrl(data.claim_url);
+      setRegistered(true);
+      setJustRegistered(true);
+      onRegistered?.();
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="glass-strong rounded-2xl p-6 space-y-4">
