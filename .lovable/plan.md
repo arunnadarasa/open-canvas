@@ -1,40 +1,34 @@
 
-# Add Optional Video Hash Field
+# Add Optional Description Field with Hackathon Example
 
-Add a separate, optional "Video Hash" input field to the minting form for users who want to attach an IPFS video CID alongside their Expression/DSL.
+Add an optional "Description" text input to the minting form so users can provide a human-readable description of their dance move. Include a pre-filled example button for quick hackathon demos.
 
 ---
 
 ## What You'll See
 
-A new text input labeled "Video Hash (optional)" will appear between the Expression/DSL textarea and the Royalty slider. It will accept an IPFS CID or video reference link. The existing Expression field remains required and unchanged.
+A new text input labeled "Description (optional)" will appear between the Move Name field and the Expression/DSL textarea. A small "Use example" pill button will auto-fill a hackathon-ready description. If left empty, the existing default (`"Dance move NFT: {moveName}"`) will be used as a fallback.
 
 ---
 
 ## Technical Details
 
 **`src/components/MoveMint.tsx`**
-- Add new state: `const [videoHashCid, setVideoHashCid] = useState('')`
-- Add a new input field after the Expression/DSL section (after line ~433, before the Royalty slider) with:
-  - Label: "Video Hash (optional)"
-  - Placeholder: e.g. `QmXyz... or IPFS video CID`
-  - Styled consistently with the Move Name input
-  - Not required
-- When minting, pass `videoHashCid` alongside `videoHash` in the metadata call and `onMintSuccess` callback
+- Add new state: `const [description, setDescription] = useState('')`
+- Insert a new input field after Move Name (around line 393) with:
+  - Label: "Description (optional)"
+  - Placeholder: e.g. "A brief description of this dance move..."
+  - A small "Use example" pill button that fills in a hackathon-ready description like: `"An expressive choreography skill that reacts to audience sentiment and proximity, blending chest pops and waves into an emergent dance routine for AI agents."`
+- Replace the hardcoded `description: \`Dance move NFT: ${moveName}\`` in both mint paths (~line 111 and USDC path) with `description || \`Dance move NFT: ${moveName}\``
+- Pass `description` through `onMintSuccess` callback
+
+**`src/components/MoveMint.tsx` onMintSuccess type**
+- Add optional `description?: string` to the callback type
 
 **`supabase/functions/nft-metadata/index.ts`**
-- Accept optional `videoHashCid` from the request body
-- If provided, add it as an additional attribute: `{ trait_type: "Video CID", value: videoHashCid }`
-- Include it in the SKILL.md output under a "Video" section
+- Already accepts `description` from the request body -- no changes needed
 
 **`src/hooks/useMintedMoves.ts`**
-- Add `videoHashCid` to the `MintedMove` type (optional field)
-- Map it from/to a new `video_hash_cid` column if stored in DB
+- No DB column change needed; the description is already stored in the NFT metadata JSON, not separately in the DB
 
-**Database migration**
-- Add nullable `video_hash_cid TEXT` column to the `minted_moves` table
-
-**`src/components/NFTCertificate.tsx`**
-- Display "Video CID" if present in the move data
-
-No new dependencies needed.
+No new dependencies or migrations needed.
