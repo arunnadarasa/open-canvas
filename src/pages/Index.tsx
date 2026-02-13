@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink, MessageCircleQuestion, Map, Fingerprint, Users } from 'lucide-react';
 import MoltbookConnect from '../components/MoltbookConnect';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
@@ -48,6 +48,25 @@ export default function Index() {
   const [moltbookRegistered, setMoltbookRegistered] = useState(
     () => localStorage.getItem('moltbook_registered') === 'true'
   );
+
+  // Auto-detect existing Moltbook registration from DB
+  useEffect(() => {
+    if (!walletAddress || localStorage.getItem('moltbook_registered') === 'true') return;
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase
+        .from('moltbook_agents_public')
+        .select('wallet_address')
+        .eq('wallet_address', walletAddress)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            localStorage.setItem('moltbook_registered', 'true');
+            setMoltbookRegistered(true);
+          }
+        });
+    });
+  }, [walletAddress]);
+
   return (
     <main className="min-h-screen bg-mesh text-foreground relative overflow-hidden">
       {/* Floating decorative elements */}
