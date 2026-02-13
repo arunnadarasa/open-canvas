@@ -576,10 +576,20 @@ export default function MoveMint({ onMintSuccess, isWorldIDVerified, isClawKeyVe
           )}
 
           {verifiedContent && (
-            <p className="mt-3 text-sm text-primary font-medium flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4" />
-              {paymentMethod === 'usdc' ? 'x402 verified ✓' : 'On-chain confirmed ✓'}
-            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <p className="text-sm text-primary font-medium flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" />
+                {paymentMethod === 'usdc' ? 'x402 verified ✓' : 'On-chain confirmed ✓'}
+              </p>
+              <a
+                href="https://www.moltbook.com/m/dancetech"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
+              >
+                Posted to Moltbook <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           )}
         </div>
       )}

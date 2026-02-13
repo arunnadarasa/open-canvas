@@ -92,6 +92,39 @@ export type Database = {
         }
         Relationships: []
       }
+      moltbook_agents: {
+        Row: {
+          agent_name: string
+          api_key: string
+          claim_url: string | null
+          claimed: boolean
+          created_at: string
+          id: string
+          moltbook_post_id: string | null
+          wallet_address: string
+        }
+        Insert: {
+          agent_name: string
+          api_key: string
+          claim_url?: string | null
+          claimed?: boolean
+          created_at?: string
+          id?: string
+          moltbook_post_id?: string | null
+          wallet_address: string
+        }
+        Update: {
+          agent_name?: string
+          api_key?: string
+          claim_url?: string | null
+          claimed?: boolean
+          created_at?: string
+          id?: string
+          moltbook_post_id?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       royalty_events: {
         Row: {
           amount: number
