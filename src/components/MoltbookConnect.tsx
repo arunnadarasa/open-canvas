@@ -54,6 +54,13 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
           setAgentName((data as any).agent_name || '');
           setClaimUrl((data as any).claim_url || '');
           setRegistered(true);
+        } else {
+          // Fallback: check localStorage for agent name (registered before wallet connect)
+          const cachedName = localStorage.getItem('moltbook_agent_name');
+          if (cachedName) {
+            setAgentName(cachedName);
+            setRegistered(true);
+          }
         }
         setFetchingStatus(false);
       });
@@ -174,6 +181,7 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
 
       setAgentName(data.agent_name);
       setClaimUrl(data.claim_url);
+      localStorage.setItem('moltbook_agent_name', data.agent_name);
       setRegistered(true);
       const alreadyClaimed = walletAddress && localStorage.getItem(`moltbook_claimed_${walletAddress}`);
       setJustRegistered(!alreadyClaimed);
