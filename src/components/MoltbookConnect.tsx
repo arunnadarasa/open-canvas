@@ -143,7 +143,6 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
 
   // Registration card
   const handleRegister = async () => {
-    if (!walletAddress) return;
 
     // Validate name
     const nameResult = nameSchema.safeParse(inputName);
@@ -164,7 +163,7 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
     try {
       const { data, error: fnError } = await supabase.functions.invoke('moltbook-register', {
         body: {
-          wallet_address: walletAddress,
+          ...(walletAddress ? { wallet_address: walletAddress } : {}),
           agent_name: inputName.trim(),
           description: inputBio.trim() || undefined,
         },
@@ -208,7 +207,7 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
       {error && <p className="text-xs text-destructive">{error}</p>}
       <button
         onClick={() => setModalOpen(true)}
-        disabled={!walletAddress}
+        disabled={false}
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm text-white bg-gradient-to-r from-[hsl(var(--gradient-cyan))] to-[hsl(var(--gradient-magenta))] hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.4)] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 btn-shimmer bg-[length:200%_auto]"
       >
         <Users className="w-4 h-4" />
