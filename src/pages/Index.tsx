@@ -114,19 +114,6 @@ export default function Index() {
             {clawKeyVerified && <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => {}} isVerified={true} />}
           </div>
           </div>
-          <div className="glass rounded-xl p-3 sm:p-4 mb-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
-            <Wallet className="w-5 h-5 shrink-0 mt-0.5 text-primary/60" />
-            <div>
-              <p>To mint on devnet, enable <strong className="text-foreground">Testnet Mode</strong> in Phantom (Settings → Developer Settings) and ensure you have at least <strong className="text-foreground">0.1 SOL</strong>.</p>
-              <a href="https://faucet.solana.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-primary hover:text-primary/80 transition-colors underline underline-offset-4">
-                Get free devnet SOL <ExternalLink className="w-3 h-3" />
-              </a>
-              <p className="mt-2">To pay with USDC, get devnet USDC from Circle's faucet (select <strong className="text-foreground">Solana</strong> and <strong className="text-foreground">Devnet</strong>).</p>
-              <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-primary hover:text-primary/80 transition-colors underline underline-offset-4">
-                Get free devnet USDC <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-          </div>
           {!worldIdVerified && (
             <WorldIDVerify isVerified={false} onVerified={() => setWorldIdVerified(true)} />
           )}
@@ -134,7 +121,22 @@ export default function Index() {
             <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => setClawKeyVerified(true)} isVerified={false} />
           )}
           {worldIdVerified && clawKeyVerified && (
-            <MoveMint onMintSuccess={addMove} isWorldIDVerified={worldIdVerified} isClawKeyVerified={clawKeyVerified} />
+            <>
+              <div className="glass rounded-xl p-3 sm:p-4 mb-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
+                <Wallet className="w-5 h-5 shrink-0 mt-0.5 text-primary/60" />
+                <div>
+                  <p>To mint on devnet, enable <strong className="text-foreground">Testnet Mode</strong> in Phantom (Settings → Developer Settings) and ensure you have at least <strong className="text-foreground">0.1 SOL</strong>.</p>
+                  <a href="https://faucet.solana.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-primary hover:text-primary/80 transition-colors underline underline-offset-4">
+                    Get free devnet SOL <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <p className="mt-2">To pay with USDC, get devnet USDC from Circle's faucet (select <strong className="text-foreground">Solana</strong> and <strong className="text-foreground">Devnet</strong>).</p>
+                  <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-primary hover:text-primary/80 transition-colors underline underline-offset-4">
+                    Get free devnet USDC <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+              <MoveMint onMintSuccess={addMove} isWorldIDVerified={worldIdVerified} isClawKeyVerified={clawKeyVerified} />
+            </>
           )}
         </section>
 
