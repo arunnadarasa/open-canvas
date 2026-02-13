@@ -16,6 +16,7 @@ export interface MintedMove {
   metadataUri?: string;
   skillJsonUri?: string;
   skillMdUri?: string;
+  videoHashCid?: string;
 }
 
 export function useMintedMoves() {
@@ -48,6 +49,7 @@ export function useMintedMoves() {
       verified: row.verified,
       mintPubkey: row.mint_pubkey || undefined,
       skillPda: row.skill_pda || undefined,
+      videoHashCid: row.video_hash_cid || undefined,
     }));
 
     setMoves(mapped);
@@ -67,6 +69,7 @@ export function useMintedMoves() {
     paymentMethod: 'usdc' | 'sol';
     mintPubkey?: string;
     skillPda?: string;
+    videoHashCid?: string;
   }) => {
     const { data, error } = await supabase
       .from('minted_moves')
@@ -77,6 +80,7 @@ export function useMintedMoves() {
         royalty_percent: move.royalty,
         mint_pubkey: move.mintPubkey || null,
         skill_pda: move.skillPda || null,
+        video_hash_cid: move.videoHashCid || null,
         tx_signature: move.txSignature,
         payment_method: move.paymentMethod,
         verified: move.paymentMethod === 'usdc', // x402 verified
@@ -102,6 +106,7 @@ export function useMintedMoves() {
         verified: data.verified,
         mintPubkey: data.mint_pubkey || undefined,
         skillPda: data.skill_pda || undefined,
+        videoHashCid: data.video_hash_cid || undefined,
       };
       setMoves((prev) => [newMove, ...prev]);
     }

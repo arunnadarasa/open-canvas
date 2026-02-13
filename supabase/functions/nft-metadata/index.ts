@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { moveName, description, videoHash, creator, royaltyPercent, mintPubkey } =
+    const { moveName, description, videoHash, creator, royaltyPercent, mintPubkey, videoHashCid } =
       await req.json();
 
     if (!moveName || !creator) {
@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
         { trait_type: "Creator", value: creator },
         { trait_type: "Royalty", value: `${royaltyPercent ?? 5}%` },
         { trait_type: "Video Hash", value: videoHash || "" },
+        ...(videoHashCid ? [{ trait_type: "Video CID", value: videoHashCid }] : []),
         ...(conditions ? [{ trait_type: "Conditional DSL", value: "true" }] : []),
       ],
       properties: {
@@ -105,6 +106,7 @@ ${royaltyPercent ?? 5}%${mintPubkey ? `\n\n## Mint\n\`${mintPubkey}\`` : ''}
 ${videoHash || 'N/A'}
 \`\`\`
 ${conditions ? `\n## Conditions\n${JSON.stringify(conditions, null, 2)}` : ''}
+${videoHashCid ? `\n## Video\n\`${videoHashCid}\`` : ''}
 
 ## Licensing
 License this skill on-chain via the MoveRegistry program (\`Dp2JcVDt4seef6LbPCtoHiD5nrHkRUFHJdBPdCUTVeDQ\`).
