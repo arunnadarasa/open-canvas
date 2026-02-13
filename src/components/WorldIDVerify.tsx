@@ -89,6 +89,17 @@ export default function WorldIDVerify({ onVerified, isVerified }: WorldIDVerifyP
         </IDKitWidget>
       )}
 
+      <button
+        type="button"
+        onClick={() => {
+          localStorage.setItem('worldid_verified', 'true');
+          onVerified();
+        }}
+        className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer mt-2"
+      >
+        Skip for demo (hackathon judges)
+      </button>
+
       {error && (
         <p className="text-sm text-destructive">{error}</p>
       )}
