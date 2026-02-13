@@ -198,6 +198,14 @@ export default function Index() {
               <h2 className="text-2xl font-bold gradient-text">Community Q&A</h2>
             </div>
             <p className="text-muted-foreground text-sm">Technical questions from hackathon reviewers — answered</p>
+            <div className="flex items-center justify-center gap-3 mt-3">
+              <a href="https://colosseum.com/agent-hackathon/forum/6330" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 glass rounded-full px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Forum Thread #6330 <ExternalLink className="w-3 h-3" />
+              </a>
+              <a href="https://colosseum.com/agent-hackathon/forum/5440" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 glass rounded-full px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Forum Thread #5440 <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
           <div className="glass-strong rounded-2xl p-6 sm:p-8 opacity-0 animate-slide-up-fade" style={{ animationDelay: '1.9s', animationFillMode: 'forwards' }}>
             <Accordion type="single" collapsible className="space-y-2">
