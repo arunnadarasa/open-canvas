@@ -1,26 +1,44 @@
 
 
-# Auto-Detect Existing Moltbook Registration
+# Fix Moltbook Card Flash on First Load
 
 ## Problem
 
-You already joined Moltbook, but the "Join Moltbook" card still appears because the localStorage flag (`moltbook_registered`) was added after your original registration. The flag was never set for your wallet.
+The "Join Moltbook" card still shows briefly because:
+1. The latest code with auto-detect may not be published yet
+2. Even with the fix, the card flashes while the async DB query runs -- it defaults to showing the card, then hides it after the query completes
 
 ## Fix
 
 ### `src/pages/Index.tsx`
 
-Add a useEffect that checks the database for an existing Moltbook registration when the wallet is connected. If a record is found, set `moltbook_registered` in localStorage and update the state so the card hides automatically.
+Change the auto-detect logic so that when a wallet is connected and localStorage doesn't have the flag, the Moltbook card is **hidden** (not shown) while the database check is in progress.
 
-This mirrors the pattern already used in `MoltbookConnect` for badge mode, but at the page level to control whether the registration card shows at all.
+Specifically:
+- Add a `moltbookChecking` state initialized to `true` when the wallet is connected and localStorage doesn't have the flag
+- The useEffect sets `moltbookChecking = false` after the DB query finishes
+- The conditional rendering of `MoltbookConnect` checks: if `moltbookChecking` is true, don't render the card at all (or show a subtle loading state)
+- If DB returns a record, set localStorage and state as before
+- If no record, set `moltbookChecking = false` and show the registration card
 
 ### Technical Detail
 
 ```text
-On mount (when walletAddress is available):
-  1. Check localStorage for 'moltbook_registered' -- if already set, skip
-  2. Query moltbook_agents_public view for the wallet
-  3. If record exists, set localStorage('moltbook_registered', 'true') and setMoltbookRegistered(true)
+State changes:
+  - Add: moltbookChecking (boolean, default: !localStorage.has('moltbook_registered') && walletAddress exists)
+  
+  useEffect (walletAddress changes):
+    if localStorage already set -> skip, moltbookChecking = false
+    else -> query DB
+      found -> set localStorage, setMoltbookRegistered(true), moltbookChecking = false
+      not found -> moltbookChecking = false (show registration card)
+
+  Render condition:
+    if moltbookChecking -> hide MoltbookConnect card entirely
+    if moltbookRegistered -> hide card (badge shows via MoltbookConnect badge mode)
+    else -> show registration card
 ```
 
-This is a single useEffect addition -- no other files need changes.
+This is a small change to the existing useEffect and render logic in Index.tsx only. No other files need changes.
+
+After implementing, you should **publish** the app so the fix is live.
