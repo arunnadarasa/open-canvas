@@ -1,44 +1,50 @@
 
-
-# Fix Moltbook Card Flash on First Load
+# Add Name & Bio Modal Before Moltbook Registration
 
 ## Problem
 
-The "Join Moltbook" card still shows briefly because:
-1. The latest code with auto-detect may not be published yet
-2. Even with the fix, the card flashes while the async DB query runs -- it defaults to showing the card, then hides it after the query completes
+When registering on Moltbook, the agent name is auto-generated as `MR-5HQbjg-c5ke` -- cryptic and unreadable. The user wants a modal (similar to the Moltbook onboarding screenshot) where they can choose a custom agent name and optional bio before registration.
 
-## Fix
+## Changes
 
-### `src/pages/Index.tsx`
+### 1. `src/components/MoltbookConnect.tsx`
+- Add a Dialog modal that opens when the user clicks "Join Moltbook"
+- Modal contains:
+  - **Agent Name** text input (required, placeholder: "e.g., KrumpKing, PopLockPro"), with helper text "This becomes your agent's handle on Moltbook"
+  - **Short Bio** textarea (optional, max 200 chars, with character counter), placeholder: "A brief description of your dance agent's persona..."
+- "Register" button in the modal footer submits the name + description to the edge function
+- Basic validation: name required, alphanumeric + hyphens/underscores only, 3-30 chars
 
-Change the auto-detect logic so that when a wallet is connected and localStorage doesn't have the flag, the Moltbook card is **hidden** (not shown) while the database check is in progress.
+### 2. `supabase/functions/moltbook-register/index.ts`
+- Accept optional `agent_name` and `description` fields from the request body
+- If `agent_name` is provided, use it instead of auto-generating `MR-{wallet}-{suffix}`
+- If `description` is provided, use it instead of the default description string
+- Fall back to auto-generated values if not provided (backward compatibility)
+- Validate name length (3-30 chars) and sanitize input server-side
 
-Specifically:
-- Add a `moltbookChecking` state initialized to `true` when the wallet is connected and localStorage doesn't have the flag
-- The useEffect sets `moltbookChecking = false` after the DB query finishes
-- The conditional rendering of `MoltbookConnect` checks: if `moltbookChecking` is true, don't render the card at all (or show a subtle loading state)
-- If DB returns a record, set localStorage and state as before
-- If no record, set `moltbookChecking = false` and show the registration card
+## Technical Details
 
-### Technical Detail
-
+### Modal flow
 ```text
-State changes:
-  - Add: moltbookChecking (boolean, default: !localStorage.has('moltbook_registered') && walletAddress exists)
-  
-  useEffect (walletAddress changes):
-    if localStorage already set -> skip, moltbookChecking = false
-    else -> query DB
-      found -> set localStorage, setMoltbookRegistered(true), moltbookChecking = false
-      not found -> moltbookChecking = false (show registration card)
-
-  Render condition:
-    if moltbookChecking -> hide MoltbookConnect card entirely
-    if moltbookRegistered -> hide card (badge shows via MoltbookConnect badge mode)
-    else -> show registration card
+User clicks "Join Moltbook"
+  -> Dialog opens with name/bio form
+  -> User fills in fields, clicks "Register"
+  -> Calls edge function with { wallet_address, agent_name, description }
+  -> On success, closes modal, shows claim card as before
 ```
 
-This is a small change to the existing useEffect and render logic in Index.tsx only. No other files need changes.
+### Edge function changes (moltbook-register)
+```text
+// New request body fields:
+{ wallet_address, agent_name?, description? }
 
-After implementing, you should **publish** the app so the fix is live.
+// Name logic:
+const finalName = agent_name?.trim() || `MR-${wallet_address.slice(0,6)}-${suffix}`;
+
+// Description logic:
+const finalDesc = description?.trim() || `MoveRegistry dance skill creator (wallet: ${wallet_address.slice(0,8)}...).`;
+```
+
+### Input validation
+- Client-side: zod schema for name (min 3, max 30, regex for allowed chars) and bio (max 200)
+- Server-side: length checks and sanitization before passing to Moltbook API
