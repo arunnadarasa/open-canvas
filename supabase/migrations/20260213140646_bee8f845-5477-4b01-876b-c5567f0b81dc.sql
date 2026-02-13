@@ -1,0 +1,1 @@
+ALTER TABLE public.clawkey_agents ADD CONSTRAINT clawkey_agents_wallet_address_unique UNIQUE (wallet_address);
