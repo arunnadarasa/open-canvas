@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Award, ShieldCheck, Coins, Sparkles, Zap, ChevronDown, Cpu, Globe, Shield, Layers, Database, Wallet, Component, ExternalLink, MessageCircleQuestion, Map, Fingerprint, Users } from 'lucide-react';
 import MoltbookConnect from '../components/MoltbookConnect';
+import StepIndicator from '../components/StepIndicator';
+import WhatsNextPanel from '../components/WhatsNextPanel';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { usePrivy } from '@privy-io/react-auth';
 import MoveMint from '../components/MoveMint';
@@ -150,34 +152,47 @@ export default function Index() {
             {moltbookRegistered && <MoltbookConnect walletAddress={walletAddress || null} isVerified={true} />}
           </div>
           </div>
-          {!worldIdVerified && (
-            <WorldIDVerify isVerified={false} onVerified={() => setWorldIdVerified(true)} />
-          )}
-          {worldIdVerified && !clawKeyVerified && (
-            <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => setClawKeyVerified(true)} isVerified={false} />
-          )}
-          {worldIdVerified && clawKeyVerified && !moltbookRegistered && !moltbookChecking && (
-            <div className="space-y-3">
-              <MoltbookConnect
-                walletAddress={walletAddress || null}
-                onRegistered={() => {
-                  setMoltbookRegistered(true);
-                  localStorage.setItem('moltbook_registered', 'true');
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  localStorage.setItem('moltbook_registered', 'true');
-                  setMoltbookRegistered(true);
-                }}
-                className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
-              >
-                Skip for demo (hackathon judges)
-              </button>
+
+          {/* Step Progress Indicator */}
+          <StepIndicator worldIdVerified={worldIdVerified} clawKeyVerified={clawKeyVerified} moltbookRegistered={moltbookRegistered} />
+
+          {/* Gate content: two-column on desktop */}
+          {!(worldIdVerified && clawKeyVerified && moltbookRegistered) ? (
+            <div className="lg:grid lg:grid-cols-5 lg:gap-8">
+              <div className="lg:col-span-3">
+                {!worldIdVerified && (
+                  <WorldIDVerify isVerified={false} onVerified={() => setWorldIdVerified(true)} />
+                )}
+                {worldIdVerified && !clawKeyVerified && (
+                  <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => setClawKeyVerified(true)} isVerified={false} />
+                )}
+                {worldIdVerified && clawKeyVerified && !moltbookRegistered && !moltbookChecking && (
+                  <div className="space-y-3">
+                    <MoltbookConnect
+                      walletAddress={walletAddress || null}
+                      onRegistered={() => {
+                        setMoltbookRegistered(true);
+                        localStorage.setItem('moltbook_registered', 'true');
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem('moltbook_registered', 'true');
+                        setMoltbookRegistered(true);
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
+                    >
+                      Skip for demo (hackathon judges)
+                    </button>
+                  </div>
+                )}
+              </div>
+              <aside className="hidden lg:block lg:col-span-2">
+                <WhatsNextPanel worldIdVerified={worldIdVerified} clawKeyVerified={clawKeyVerified} moltbookRegistered={moltbookRegistered} />
+              </aside>
             </div>
-          )}
-          {worldIdVerified && clawKeyVerified && moltbookRegistered && (
+          ) : (
             <div className="space-y-4">
               <div className="glass rounded-xl p-3 sm:p-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
                 <Wallet className="w-5 h-5 shrink-0 mt-0.5 text-primary/60" />
