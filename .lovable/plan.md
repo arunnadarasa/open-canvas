@@ -1,25 +1,32 @@
 
 
-# Add Hackathon Demo Bypass Button for World ID Verification
+# Add Phantom Devnet Setup Instructions
 
-Add a secondary "Skip for demo" button below the World ID verify button, allowing hackathon judges and demo viewers to bypass verification without needing the World ID app.
+Add a visible info/helper box in the Mint section that tells users how to set up their Phantom wallet for devnet testing, including enabling developer mode and getting free SOL.
 
 ---
 
 ## What You'll See
 
-Below the "Verify with World ID" button, a smaller, subtly styled text button will read "Skip for demo (hackathon judges)". Clicking it immediately marks the user as verified and unlocks the minting form -- no World ID app needed.
+A subtle informational callout will appear inside the Mint section (below the heading, above the form fields) with three clear steps:
+
+1. Enable Phantom devnet: Settings > Developer Settings > Testnet Mode
+2. Ensure at least 0.1 SOL on devnet
+3. A direct link to the Solana Faucet (https://faucet.solana.com/) to get free devnet SOL
+
+Styled as a compact glass card with an info/wallet icon, consistent with the existing design language.
 
 ---
 
 ## Technical Details
 
-**`src/components/WorldIDVerify.tsx`**
-- Add a secondary button after the `IDKitWidget` block (around line 89), styled as a subtle ghost/text link:
-  - Label: "Skip for demo (hackathon judges)"
-  - On click: sets `localStorage.setItem('worldid_verified', 'true')` and calls `onVerified()`
-  - Styled with `text-xs text-muted-foreground hover:text-foreground underline cursor-pointer mt-2` to keep it visually secondary
-- No changes to the verified badge or existing World ID flow
+**`src/pages/Index.tsx`**
+- Add a small instructional callout block inside the Mint section, between the heading row and the `WorldIDVerify` / `MoveMint` components (around line 109)
+- Content:
+  - Icon: `Wallet` from lucide-react (already imported)
+  - Text: "To mint on devnet, enable Testnet Mode in Phantom (Settings > Developer Settings), and ensure you have at least 0.1 SOL."
+  - Link: "Get free devnet SOL" pointing to `https://faucet.solana.com/` (opens in new tab, styled with `ExternalLink` icon)
+- Styled with `glass rounded-xl p-4 mb-4 text-sm text-muted-foreground` to keep it informational and non-intrusive
 
-No new files, dependencies, or migrations needed. Single file edit (~5 lines added).
+Single file edit, no new dependencies or migrations.
 
