@@ -23,7 +23,7 @@ export type Database = {
           registered_at: string | null
           session_id: string | null
           verified: boolean
-          wallet_address: string
+          wallet_address: string | null
         }
         Insert: {
           created_at?: string
@@ -33,7 +33,7 @@ export type Database = {
           registered_at?: string | null
           session_id?: string | null
           verified?: boolean
-          wallet_address: string
+          wallet_address?: string | null
         }
         Update: {
           created_at?: string
@@ -43,7 +43,7 @@ export type Database = {
           registered_at?: string | null
           session_id?: string | null
           verified?: boolean
-          wallet_address?: string
+          wallet_address?: string | null
         }
         Relationships: []
       }

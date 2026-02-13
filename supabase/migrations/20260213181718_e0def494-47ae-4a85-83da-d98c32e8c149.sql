@@ -1,0 +1,1 @@
+ALTER TABLE public.clawkey_agents ALTER COLUMN wallet_address DROP NOT NULL;
