@@ -1,40 +1,84 @@
 
 
-# Improve Mobile UX for "Mint Your Move" Section
+# ClawKey Integration -- Optional Agent Registration
 
-Based on the screenshot, there are several mobile UX issues to fix:
-
-1. The heading row ("Mint Your Move" + "Human Verified" badge) is cramped on small screens
-2. The "Phantom wallet not detected" warning shows even on mobile where users access via Phantom's in-app browser (where `window.solana` may load slightly differently)
-3. The devnet info card text is dense on small screens
-4. The connect button and form inputs could use better mobile spacing
+Add an optional "Register Your Claw Agent" flow so users can prove human ownership of their AI agent via ClawKey's VeryAI palm verification. This appears as an opt-in card in the Mint section -- users can mint without it, but verified users get a trust badge.
 
 ---
 
 ## What You'll See
 
-- The heading and "Human Verified" badge will stack vertically on mobile instead of being side-by-side
-- The devnet setup info card will use slightly smaller text and tighter spacing on mobile
-- The "Phantom wallet not detected" warning will be softened -- on mobile it will say "If using Phantom mobile, open this page in Phantom's built-in browser" instead of just telling users to install an extension
-- Form inputs, buttons, and the payment toggle will have better touch-friendly sizing
-- The Connect Wallet button will be full-width on mobile
+- A new card below the mint form titled "Register Your Claw Agent" with a brief explanation
+- Clicking "Register Agent" triggers the flow: generates a challenge, calls ClawKey API, and shows a registration link
+- User clicks the link to complete palm verification (link is never auto-opened per ClawKey rules)
+- Once verified, a "ClawKey Verified" badge appears (styled like the existing "Human Verified" badge)
+- ClawKey added to the "Built With" tech stack grid
 
 ---
 
 ## Technical Details
 
-**`src/pages/Index.tsx`** -- Mint section header:
-- Change the heading row from `flex items-center justify-between` to `flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3` so the badge wraps below the title on narrow screens
-- Reduce section padding from `p-6 sm:p-8` (already responsive, keep as-is)
+### 1. Database: New `clawkey_agents` table
 
-**`src/components/MoveMint.tsx`** -- Wallet detection and connect UX:
-- Update the Phantom-not-detected warning (lines 332-337): Instead of just "Please install Phantom extension", show a more helpful message that accounts for mobile: "On mobile, open this page inside the Phantom app's browser. On desktop, install the Phantom browser extension."
-- Make the Connect Wallet button always full-width on mobile: change `w-full sm:w-auto` (already correct, keep)
-- Add `text-sm` to the "Connect your wallet to mint..." prompt for mobile readability
+| Column | Type | Default |
+|--------|------|---------|
+| id | uuid (PK) | gen_random_uuid() |
+| wallet_address | text (not null) | -- |
+| device_id | text | -- |
+| public_key | text | -- |
+| session_id | text | -- |
+| verified | boolean | false |
+| registered_at | timestamptz | -- |
+| created_at | timestamptz | now() |
 
-**`src/pages/Index.tsx`** -- Devnet info card:
-- Make the card text slightly more compact: reduce inner padding on mobile with `p-3 sm:p-4`
-- Add `text-xs sm:text-sm` to scale the text down on small screens
+RLS: Public read (anyone can check verification status), insert/update restricted to service role (edge functions only).
 
-These are small targeted tweaks across 2 files, no new dependencies or migrations.
+### 2. Edge Function: `supabase/functions/clawkey-register/index.ts`
+
+- Receives `wallet_address` from client
+- Generates Ed25519 key pair using Deno's `crypto.subtle`
+- Builds AgentChallenge: `deviceId` = wallet address, `publicKey` (base64 DER SPKI), signed message, timestamp
+- POSTs to `https://api.clawkey.ai/v1/agent/register/init`
+- Stores key info in `clawkey_agents` table via service role
+- Returns `sessionId` and `registrationUrl` to client
+
+### 3. Edge Function: `supabase/functions/clawkey-status/index.ts`
+
+- Accepts `sessionId`, calls `GET https://api.clawkey.ai/v1/agent/register/{sessionId}/status`
+- On `completed`, updates `clawkey_agents` row with `verified = true` and `registered_at`
+- Returns status to client
+
+### 4. Config: `supabase/config.toml`
+
+Add entries for both new functions with `verify_jwt = false`.
+
+### 5. New Component: `src/components/ClawKeyRegister.tsx`
+
+- Props: `walletAddress: string | null`
+- Checks `clawkey_agents` table for existing verification
+- If verified: shows "ClawKey Verified" badge (emerald style matching World ID badge)
+- If not: shows a card with "Register Agent with ClawKey" button
+  - On click: calls `clawkey-register` edge function
+  - Shows the `registrationUrl` as a clickable link (user must click it manually)
+  - Polls `clawkey-status` every 3 seconds until completed/failed/expired
+  - On success: updates UI to show badge
+
+### 6. Modified: `src/pages/Index.tsx`
+
+- Import and render `ClawKeyRegister` after `MoveMint` component (around line 126), passing the connected wallet address
+- Add ClawKey to the tech stack grid array:
+  - `{ icon: Fingerprint, name: 'ClawKey', desc: 'Verifiable human ownership for AI agents', url: 'https://clawkey.ai' }`
+- Import `Fingerprint` from lucide-react
+
+### File Summary
+
+| File | Action |
+|------|--------|
+| Database migration | Create `clawkey_agents` table with RLS |
+| `supabase/functions/clawkey-register/index.ts` | Create |
+| `supabase/functions/clawkey-status/index.ts` | Create |
+| `src/components/ClawKeyRegister.tsx` | Create |
+| `src/pages/Index.tsx` | Modify (add component + tech stack entry) |
+
+No new npm dependencies needed.
 
