@@ -126,7 +126,7 @@ export default function Index() {
             <ClawKeyRegister walletAddress={walletAddress || null} onVerified={() => setClawKeyVerified(true)} isVerified={false} />
           )}
           {worldIdVerified && clawKeyVerified && (
-            <>
+            <div className="space-y-4">
               {!moltbookRegistered && (
                 <MoltbookConnect
                   walletAddress={walletAddress || null}
@@ -136,7 +136,7 @@ export default function Index() {
                   }}
                 />
               )}
-              <div className="glass rounded-xl p-3 sm:p-4 mb-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
+              <div className="glass rounded-xl p-3 sm:p-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
                 <Wallet className="w-5 h-5 shrink-0 mt-0.5 text-primary/60" />
                 <div>
                   <p>To mint on devnet, enable <strong className="text-foreground">Testnet Mode</strong> in Phantom (Settings → Developer Settings) and ensure you have at least <strong className="text-foreground">0.1 SOL</strong>.</p>
@@ -150,7 +150,7 @@ export default function Index() {
                 </div>
               </div>
               <MoveMint onMintSuccess={addMove} isWorldIDVerified={worldIdVerified} isClawKeyVerified={clawKeyVerified} />
-            </>
+            </div>
           )}
         </section>
 
