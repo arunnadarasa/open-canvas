@@ -17,6 +17,13 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
   const [fetchingStatus, setFetchingStatus] = useState(!!isVerified);
   const [justRegistered, setJustRegistered] = useState(false);
 
+  // Check localStorage for claimed state
+  useEffect(() => {
+    if (walletAddress && localStorage.getItem(`moltbook_claimed_${walletAddress}`)) {
+      setJustRegistered(false);
+    }
+  }, [walletAddress]);
+
   // Fetch registration status when in badge mode
   useEffect(() => {
     if (!isVerified) return;
@@ -109,7 +116,10 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
             View dancetech
           </a>
           <button
-            onClick={() => setJustRegistered(false)}
+            onClick={() => {
+              if (walletAddress) localStorage.setItem(`moltbook_claimed_${walletAddress}`, 'true');
+              setJustRegistered(false);
+            }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
           >
             I've Claimed It ✓
@@ -136,7 +146,8 @@ export default function MoltbookConnect({ walletAddress, isVerified, onRegistere
       setAgentName(data.agent_name);
       setClaimUrl(data.claim_url);
       setRegistered(true);
-      setJustRegistered(true);
+      const alreadyClaimed = walletAddress && localStorage.getItem(`moltbook_claimed_${walletAddress}`);
+      setJustRegistered(!alreadyClaimed);
       onRegistered?.();
     } catch (err: any) {
       setError(err.message || 'Registration failed');
