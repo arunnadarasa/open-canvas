@@ -57,6 +57,11 @@ export default function Index() {
   // Auto-detect existing Moltbook registration from DB
   useEffect(() => {
     if (!walletAddress) {
+      const cachedName = localStorage.getItem('moltbook_agent_name');
+      if (cachedName) {
+        localStorage.setItem('moltbook_registered', 'true');
+        setMoltbookRegistered(true);
+      }
       setMoltbookChecking(false);
       return;
     }
