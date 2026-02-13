@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.nft-metadata]
 verify_jwt = false
+
+[functions.clawkey-register]
+verify_jwt = false
+
+[functions.clawkey-status]
+verify_jwt = false

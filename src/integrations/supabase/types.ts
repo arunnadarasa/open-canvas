@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      clawkey_agents: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          id: string
+          public_key: string | null
+          registered_at: string | null
+          session_id: string | null
+          verified: boolean
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          public_key?: string | null
+          registered_at?: string | null
+          session_id?: string | null
+          verified?: boolean
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          public_key?: string | null
+          registered_at?: string | null
+          session_id?: string | null
+          verified?: boolean
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       minted_moves: {
         Row: {
           created_at: string
