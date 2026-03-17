@@ -52,6 +52,16 @@ npm run dev
 - `src/hooks/` – `useEVVMDeployment` and deployment state
 - `src/components/` – UI components and Web3Provider
 
+## Lovable compatibility
+
+This repo is set up to work with [Lovable](https://lovable.dev) when the project is connected to GitHub:
+
+- **GitHub as source of truth:** Connect this repo in Lovable (Settings → Connectors → GitHub). Lovable syncs from the **default branch (`main`)** only. Push changes to `main` so Lovable loads this frontend.
+- **Dev server port:** The app runs on **port 8080** (`vite.config.ts`). Playwright is configured with `baseURL: http://localhost:8080` so Lovable’s browser tests hit the same app.
+- **Stack:** React + Vite + TypeScript + Tailwind, with `lovable-tagger` and `lovable-agent-playwright-config` for Lovable’s tooling.
+
+If Lovable was showing a different frontend, ensure the Lovable project is linked to **this** repository and that you’re on `main`. After pushing to `main`, Lovable will sync and preview this codebase.
+
 ## License
 
 Private.
